@@ -1,3 +1,10 @@
+# ZeroGPU: `spaces` must be imported before anything initialises CUDA.
+try:
+    import spaces
+    HAS_SPACES = True
+except Exception:
+    HAS_SPACES = False
+
 import gradio as gr
 import torch
 import uvicorn
@@ -6,9 +13,13 @@ import uvicorn
 # /api/health, /docs and the MongoDB lifespan hook.
 from main import app
 
-
-def run_engine_check():
-    return f"AI Engine Active | PyTorch: {torch.__version__} | Threads: {torch.get_num_threads()}"
+if HAS_SPACES:
+    @spaces.GPU
+    def run_engine_check():
+        return f"ZeroGPU AI Engine Active | PyTorch: {torch.__version__} | CUDA: {torch.cuda.is_available()}"
+else:
+    def run_engine_check():
+        return f"AI Engine Active | PyTorch: {torch.__version__} | Threads: {torch.get_num_threads()}"
 
 
 with gr.Blocks(title="NeuroAssist API") as demo:
@@ -34,7 +45,34 @@ with gr.Blocks(title="NeuroAssist API") as demo:
 # and silently drop every /api route — that was the 404 bug.)
 app = gr.mount_gradio_app(app, demo, path="/")
 
+
+def report_zerogpu_startup():
+    """Register our @spaces.GPU functions with the ZeroGPU scheduler.
+
+    spaces.zero hooks this onto gr.Blocks.launch via one_launch(), but we
+    serve through uvicorn instead, so launch() never runs and the Space
+    dies with "No @spaces.GPU function detected during startup". Calling
+    it directly does exactly what launch() would have done. The attribute
+    only exists on ZeroGPU hardware.
+    """
+    if not HAS_SPACES:
+        return
+    try:
+        from spaces import zero
+    except Exception as e:
+        print("ZeroGPU startup notice:", e)
+        return
+    startup = getattr(zero, "startup", None)
+    if startup is None:
+        return
+    try:
+        startup()
+    except Exception as e:
+        print("ZeroGPU startup notice:", e)
+
+
 # 7860 is the port the Space proxy forwards to. Do not read $PORT — it is
-# 7861 here and held by another process.
+# 7861 here and already held by another process.
 if __name__ == "__main__":
+    report_zerogpu_startup()
     uvicorn.run(app, host="0.0.0.0", port=7860)
