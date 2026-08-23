@@ -6,7 +6,7 @@ import numpy as np
 import SimpleITK as sitk
 import torch
 import torch.nn as nn
-from ml.medicalnet import get_multiclass_model
+from ml.medicalnet import get_multiclass_model, weights_loaded
 
 logger = logging.getLogger(__name__)
 
@@ -175,34 +175,29 @@ def run_preprocessing(file_path: str) -> sitk.Image:
 
 def run_inference(file_path: str, model_type: str = "multiclass") -> dict:
     """
-    Execute real PyTorch inference on the preprocessed 128x128x128 MRI volume.
-    Combines the deep feature representations of ResNet-10 with a reproducible 
-    anatomical prior for clinical realism.
+    Execute PyTorch inference on the preprocessed 128x128x128 MRI volume.
+
+    The returned probabilities are the model's own softmax output and nothing
+    else. Two things used to be layered on top and have been removed: a
+    filename sniff that forced the class whenever the file was named *_AD /
+    *_CN / *_MCI, and an 0.85-weighted random Dirichlet "prior" that drowned
+    out the network. Both made the output look confident while being
+    essentially a hash-seeded random draw.
+
+    Until real weights are supplied via NEUROASSIST_WEIGHTS the network is
+    randomly initialised, so `model_trained` comes back False and callers must
+    present the result as a demo, not a finding.
     """
     start_time = time.time()
     file_hash = _file_md5(file_path)
     seed_val = int(file_hash[:8], 16)
     rng = np.random.RandomState(seed_val)
-    
-    fname = os.path.basename(file_path).upper()
-    target_override = None
-    if "_AD" in fname or "AD_" in fname or "-AD" in fname or "ALZHEIMER" in fname or "DEMENTIA" in fname:
-        target_override = 2
-    elif "_MCI" in fname or "MCI_" in fname or "-MCI" in fname or "IMPAIRMENT" in fname:
-        target_override = 1
-    elif "_CN" in fname or "CN_" in fname or "-CN" in fname or "NORMAL" in fname or "CONTROL" in fname:
-        target_override = 0
 
-    # Pre-calculate fallback data in case of error
-    if target_override is not None:
-        pred_idx_fallback = target_override
-    else:
-        pred_idx_fallback = rng.choice([0, 1, 2], p=[0.35, 0.35, 0.30])
-    prediction_fallback = ["CN", "MCI", "AD"][pred_idx_fallback]
-    conf_ad_fb = 0.88 if pred_idx_fallback == 2 else (0.08 if pred_idx_fallback == 1 else 0.04)
-    conf_mci_fb = 0.08 if pred_idx_fallback == 2 else (0.76 if pred_idx_fallback == 1 else 0.12)
-    conf_cn_fb = 1.0 - conf_ad_fb - conf_mci_fb
-    
+    # Uninformative fallback, used only if preprocessing or the forward pass fails.
+    conf_cn_fb = conf_mci_fb = conf_ad_fb = 1.0 / 3.0
+    pred_idx_fallback = 0
+    prediction_fallback = "CN"
+
     try:
         # 1. Run SimpleITK Preprocessing
         preprocessed_img = run_preprocessing(file_path)
@@ -226,33 +221,12 @@ def run_inference(file_path: str, model_type: str = "multiclass") -> dict:
             logits = get_model()(tensor_img)
             probabilities = torch.softmax(logits, dim=1).numpy()[0] # [CN, MCI, AD]
             
-        if target_override is not None:
-            if target_override == 2:
-                conf_ad = float(rng.uniform(0.82, 0.94))
-                conf_mci = float(rng.uniform(0.04, 0.12))
-                conf_cn = 1.0 - conf_ad - conf_mci
-            elif target_override == 1:
-                conf_mci = float(rng.uniform(0.68, 0.84))
-                conf_cn = float(rng.uniform(0.08, 0.20))
-                conf_ad = 1.0 - conf_mci - conf_cn
-            else:
-                conf_cn = float(rng.uniform(0.78, 0.92))
-                conf_mci = float(rng.uniform(0.05, 0.15))
-                conf_ad = 1.0 - conf_cn - conf_mci
-            pred_idx = target_override
-            prediction = ["CN", "MCI", "AD"][pred_idx]
-        else:
-            # Combine real logits outputs (15% weight) with disease prior (85% weight)
-            disease_prior = rng.dirichlet([2.5, 3.5, 4.0])
-            calibrated_probs = 0.15 * probabilities + 0.85 * disease_prior
-            calibrated_probs /= calibrated_probs.sum()
-            
-            conf_cn = float(calibrated_probs[0])
-            conf_mci = float(calibrated_probs[1])
-            conf_ad = float(calibrated_probs[2])
-            pred_idx = int(np.argmax(calibrated_probs))
-            prediction = ["CN", "MCI", "AD"][pred_idx]
-        
+        conf_cn = float(probabilities[0])
+        conf_mci = float(probabilities[1])
+        conf_ad = float(probabilities[2])
+        pred_idx = int(np.argmax(probabilities))
+        prediction = ["CN", "MCI", "AD"][pred_idx]
+
     except Exception as e:
         logger.exception("Real PyTorch/SimpleITK inference failed")
         # Generate simulated preprocessed brain array for fallback visualization
@@ -298,6 +272,7 @@ def run_inference(file_path: str, model_type: str = "multiclass") -> dict:
         "brain_regions": brain_regions,
         "processing_time": processing_time,
         "file_hash": file_hash,
+        "model_trained": weights_loaded(),
         "preprocessed_volume": vol_array # Expose for real Grad-CAM
     }
 

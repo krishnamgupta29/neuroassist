@@ -24,6 +24,28 @@ os.makedirs(GRADCAM_DIR, exist_ok=True)
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 
+async def assert_scan_access(scan: dict, current_user: dict) -> None:
+    """Raise 403 unless this user may touch this scan.
+
+    Admin sees everything, a doctor only scans belonging to them, a patient
+    only scans attached to their own linked profile. Every scan-scoped route
+    must call this — looking a scan up by its id is not authorisation.
+    """
+    role = current_user.get("role")
+    if role == "admin":
+        return
+    if role == "doctor":
+        if scan.get("doctor_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied: scan belongs to another clinician")
+        return
+    if role == "patient":
+        profile = await patients_col.find_one({"user_id": current_user["id"]})
+        if not profile or str(profile["_id"]) != scan.get("patient_id"):
+            raise HTTPException(status_code=403, detail="Access denied: scan belongs to another patient")
+        return
+    raise HTTPException(status_code=403, detail="Unauthorized role")
+
+
 @router.post("/upload")
 async def upload_scan(
     file: UploadFile = File(...),
@@ -168,6 +190,7 @@ async def analyze_scan(
         "gradcam_axial": gradcam_axial,
         "gradcam_coronal": gradcam_coronal,
         "gradcam_sagittal": gradcam_sagittal,
+        "model_trained": inference_result.get("model_trained", False),
         "status": "analyzed",
     }
 
@@ -243,13 +266,10 @@ async def delete_scan(
     scan_id: str,
     current_user: dict = Depends(require_role(["doctor", "admin"]))
 ):
-    query = {"scan_id_string": scan_id}
-    if current_user["role"] == "doctor":
-        query["doctor_id"] = current_user["id"]
-    scan = await scans_col.find_one(query)
-    if not scan:
-        scan = await scans_col.find_one({"scan_id_string": scan_id})
+    scan = await scans_col.find_one({"scan_id_string": scan_id})
     if scan:
+        # No unscoped fallback here: it used to delete scans the caller did not own.
+        await assert_scan_access(scan, current_user)
         await scans_col.delete_one({"_id": scan["_id"]})
         await review_queue_col.delete_one({"scan_id_string": scan_id})
         await log_audit(
@@ -269,6 +289,8 @@ async def review_scan(
     scan = await scans_col.find_one({"scan_id_string": scan_id})
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
+
+    await assert_scan_access(scan, current_user)
 
     if scan.get("status") in ["accepted", "flagged", "overridden"]:
         raise HTTPException(
@@ -326,14 +348,7 @@ async def download_report(scan_id: str, current_user: dict = Depends(get_current
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    # Access control
-    role = current_user.get("role")
-    if role == "doctor" and scan.get("doctor_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    if role == "patient":
-        patient = await patients_col.find_one({"user_id": current_user["id"]})
-        if not patient or str(patient["_id"]) != scan.get("patient_id"):
-            raise HTTPException(status_code=403, detail="Unauthorized")
+    await assert_scan_access(scan, current_user)
 
     patient_doc = None
     if scan.get("patient_id"):
@@ -359,6 +374,8 @@ async def _get_scan_detail_by_id(scan_id: str, current_user: dict) -> dict:
     scan = await scans_col.find_one({"scan_id_string": scan_id})
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
+
+    await assert_scan_access(scan, current_user)
 
     patient_doc = None
     if scan.get("patient_id"):
@@ -386,6 +403,9 @@ async def _get_scan_detail_by_id(scan_id: str, current_user: dict) -> dict:
         "urgency": scan.get("urgency"),
         "processing_time": scan.get("processing_time"),
         "model_used": scan.get("model_used"),
+        # False means the network had no trained weights: the probabilities are
+        # demo output, not a finding. The UI must say so.
+        "model_trained": bool(scan.get("model_trained", False)),
         "file_hash": scan.get("file_hash"),
         "original_filename": scan.get("original_filename"),
         "scan_date": scan.get("upload_date").isoformat() if scan.get("upload_date") else None,
@@ -434,6 +454,8 @@ async def get_scan_slice(
         user_doc = await users_col.find_one({"email": email})
         if not user_doc:
             raise HTTPException(status_code=401, detail="User not found")
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
@@ -441,11 +463,15 @@ async def get_scan_slice(
         raise HTTPException(status_code=400, detail="Invalid view name")
     if slice_index < 0 or slice_index > 100:
         raise HTTPException(status_code=400, detail="Slice index must be between 0 and 100")
-        
+
     scan = await scans_col.find_one({"scan_id_string": scan_id})
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-        
+
+    # This route hand-rolls its own token check, so it also has to authorise:
+    # a valid token for any account used to render any patient's MRI slices.
+    await assert_scan_access(scan, models.serialize_doc(user_doc))
+
     file_path = scan.get("file_path", "")
         
     prediction = scan.get("prediction") or "MCI"

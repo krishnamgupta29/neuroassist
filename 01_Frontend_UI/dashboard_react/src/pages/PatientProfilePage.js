@@ -84,6 +84,7 @@ export default function PatientProfilePage() {
   const [isSaved, setIsSaved] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const handleSaveNotes = () => {
     setIsSaved(true);
@@ -92,9 +93,18 @@ export default function PatientProfilePage() {
 
   const handleDeletePatient = async () => {
     setIsDeleting(true);
+    setDeleteError('');
     try {
-      await patientAPI.delete(patient.id).catch(() => {});
-    } catch (e) {}
+      // Only drop it locally once the server confirms, otherwise the patient
+      // reappears on the next fetch.
+      await patientAPI.delete(patient.id);
+    } catch (e) {
+      setIsDeleting(false);
+      setDeleteError(
+        e?.response?.data?.detail || 'Could not delete this patient. Nothing was removed.'
+      );
+      return;
+    }
 
     dispatch({ type: 'DELETE_PATIENT', payload: patient.id });
     setIsDeleting(false);
@@ -343,7 +353,7 @@ export default function PatientProfilePage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={() => { setShowDeleteModal(false); setDeleteError(''); }}
                 className="p-1 text-[#A39E98] hover:text-[#22201F]"
               >
                 <FiX className="w-4 h-4" />
@@ -358,10 +368,16 @@ export default function PatientProfilePage() {
               </p>
             </div>
 
+            {deleteError && (
+              <div className="p-3 rounded-xl bg-[#F8EAED] border border-[#ECC8CF] text-xs font-semibold text-[#7A1F2B]">
+                {deleteError}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={() => { setShowDeleteModal(false); setDeleteError(''); }}
                 className="px-4 py-2 text-xs font-semibold text-[#7A756F] hover:text-[#22201F] rounded-xl"
               >
                 Cancel

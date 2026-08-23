@@ -46,19 +46,18 @@ export default function DashboardPage() {
           scanAPI.history(50),
         ]);
 
+        // Always dispatch, including an empty list. Skipping the empty case
+        // left the previous account's cached rows on screen and made deleted
+        // records look like they had come back.
         if (patientsRes.status === 'fulfilled') {
           const pData = patientsRes.value.data;
           const pList = Array.isArray(pData) ? pData : (pData?.patients || pData?.items || []);
-          if (pList.length > 0) {
-            dispatch({ type: 'SET_PATIENTS', payload: pList });
-          }
+          dispatch({ type: 'SET_PATIENTS', payload: pList });
         }
         if (scansRes.status === 'fulfilled') {
           const sData = scansRes.value.data;
           const sList = Array.isArray(sData) ? sData : (sData?.items || sData?.scans || []);
-          if (sList.length > 0) {
-            dispatch({ type: 'SET_SCANS', payload: sList });
-          }
+          dispatch({ type: 'SET_SCANS', payload: sList });
         }
       } catch (err) {
         console.error('Dashboard data fetch error:', err);

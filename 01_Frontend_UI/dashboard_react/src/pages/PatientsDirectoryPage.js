@@ -27,6 +27,7 @@ export default function PatientsDirectoryPage() {
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [deletePatientTarget, setDeletePatientTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const filteredPatients = useMemo(() => {
     const rawPatients = state.patients;
@@ -75,9 +76,18 @@ export default function PatientsDirectoryPage() {
     if (!deletePatientTarget) return;
     const targetId = deletePatientTarget.id || deletePatientTarget._id;
     setIsDeleting(true);
+    setDeleteError('');
     try {
-      await patientAPI.delete(targetId).catch(() => {});
-    } catch (e) {}
+      // Drop the row only once the server confirms. Swallowing the error and
+      // dispatching anyway is what made deleted patients reappear on reload.
+      await patientAPI.delete(targetId);
+    } catch (e) {
+      setIsDeleting(false);
+      setDeleteError(
+        e?.response?.data?.detail || 'Could not delete this patient. Nothing was removed.'
+      );
+      return;
+    }
 
     dispatch({ type: 'DELETE_PATIENT', payload: targetId });
     setIsDeleting(false);
@@ -301,7 +311,7 @@ export default function PatientsDirectoryPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setDeletePatientTarget(null)}
+                onClick={() => { setDeletePatientTarget(null); setDeleteError(''); }}
                 className="p-1 text-[#A39E98] hover:text-[#22201F]"
               >
                 <FiX className="w-4 h-4" />
@@ -320,10 +330,16 @@ export default function PatientsDirectoryPage() {
               </p>
             </div>
 
+            {deleteError && (
+              <div className="p-3 rounded-xl bg-[#F8EAED] border border-[#ECC8CF] text-xs font-semibold text-[#7A1F2B]">
+                {deleteError}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setDeletePatientTarget(null)}
+                onClick={() => { setDeletePatientTarget(null); setDeleteError(''); }}
                 className="px-4 py-2 text-xs font-semibold text-[#7A756F] hover:text-[#22201F] rounded-xl"
               >
                 Cancel

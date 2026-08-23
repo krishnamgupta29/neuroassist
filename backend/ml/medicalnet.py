@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 def conv3x3x3(in_planes, out_planes, stride=1):
     return nn.Conv3d(
@@ -110,5 +113,55 @@ class ResNet(nn.Module):
 def resnet10(**kwargs):
     return ResNet(BasicBlock, [1, 1, 1, 1], **kwargs)
 
+
+# Set to True once a checkpoint is actually loaded. Everything downstream keys
+# off this to decide whether a prediction may be presented as a finding.
+WEIGHTS_LOADED = False
+
+# Absolute or backend-relative path to a state_dict saved with torch.save().
+WEIGHTS_PATH = os.getenv("NEUROASSIST_WEIGHTS", "")
+
+
 def get_multiclass_model():
-    return resnet10(num_seg_classes=3)
+    """Build the 3-class ResNet-10 and load trained weights if configured.
+
+    Without NEUROASSIST_WEIGHTS the returned network is randomly initialised.
+    It still runs, but its softmax output carries no diagnostic meaning, so
+    WEIGHTS_LOADED stays False and the API labels the result as a demo.
+    """
+    global WEIGHTS_LOADED
+    model = resnet10(num_seg_classes=3)
+
+    if not WEIGHTS_PATH:
+        logger.warning(
+            "NEUROASSIST_WEIGHTS is not set - running an UNTRAINED ResNet-10. "
+            "Predictions are meaningless and are flagged as demo output."
+        )
+        return model
+
+    if not os.path.exists(WEIGHTS_PATH):
+        logger.error("NEUROASSIST_WEIGHTS=%s does not exist - staying untrained.", WEIGHTS_PATH)
+        return model
+
+    try:
+        state = torch.load(WEIGHTS_PATH, map_location="cpu")
+        # Accept either a bare state_dict or a training checkpoint wrapping one.
+        if isinstance(state, dict):
+            for key in ("state_dict", "model_state_dict", "model"):
+                if key in state and isinstance(state[key], dict):
+                    state = state[key]
+                    break
+        state = {k.replace("module.", "", 1): v for k, v in state.items()}
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        if missing or unexpected:
+            logger.warning("Checkpoint loaded with missing=%s unexpected=%s", missing, unexpected)
+        WEIGHTS_LOADED = True
+        logger.info("Loaded trained weights from %s", WEIGHTS_PATH)
+    except Exception:
+        logger.exception("Failed to load %s - staying untrained.", WEIGHTS_PATH)
+
+    return model
+
+
+def weights_loaded() -> bool:
+    return WEIGHTS_LOADED

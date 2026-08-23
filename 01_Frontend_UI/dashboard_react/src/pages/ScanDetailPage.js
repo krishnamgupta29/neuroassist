@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
@@ -33,28 +33,74 @@ export default function ScanDetailPage() {
   const scansList = Array.isArray(state.scans) ? state.scans : [];
   const patientsList = Array.isArray(state.patients) ? state.patients : [];
 
-  // Find target scan or generate deterministic seeded data for this scanId
-  const rawScan = scansList.find(s => (s.scanId || s.scan_id_string || s.id) === scanId) || scansList[0];
-  const targetScanId = rawScan?.scanId || rawScan?.scan_id_string || rawScan?.id || scanId || 'SCN-849201';
+  // Match this scanId only. Falling back to scansList[0] used to render a
+  // different patient's scan under the requested id.
+  const listScan = scansList.find(s => (s.scanId || s.scan_id_string || s.id) === scanId);
+  const targetScanId = listScan?.scanId || listScan?.scan_id_string || listScan?.id || scanId;
 
-  // Generate deterministic seeded mock values for this scanId
+  // /api/scan/history carries no probabilities, risk score or biomarkers, so
+  // reading only from it meant this page always rendered seeded mock numbers.
+  // Pull the real record for this scan.
+  const [detail, setDetail] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!scanId) return undefined;
+    scanAPI
+      .result(scanId)
+      .then(res => { if (!cancelled) setDetail(res.data); })
+      .catch(() => { if (!cancelled) setDetail(null); });
+    return () => { cancelled = true; };
+  }, [scanId]);
+
+  const pct = v => (typeof v === 'number' ? v * 100 : undefined);
+
+  const rawScan = detail
+    ? {
+        ...listScan,
+        patientId: detail.patient_id,
+        patientName: detail.patient_name,
+        uploadDate: detail.scan_date,
+        prediction: detail.prediction,
+        riskScore: detail.risk_score,
+        confidence: Math.max(
+          detail.confidence_cn ?? 0,
+          detail.confidence_mci ?? 0,
+          detail.confidence_ad ?? 0
+        ) * 100,
+        probabilities: {
+          CN: pct(detail.confidence_cn),
+          MCI: pct(detail.confidence_mci),
+          AD: pct(detail.confidence_ad),
+        },
+        biomarkers: detail.biomarkers,
+        brain_regions: detail.brain_regions,
+        doctorNotes: detail.doctor_notes,
+        modelTrained: detail.model_trained,
+      }
+    : listScan;
+
+  // Seeded mock values, used only when no real scan is loaded (demo browsing).
   const seeded = useMemo(() => generateScanData(targetScanId), [targetScanId]);
+  const isMock = !rawScan;
 
+  // `??` not `||`: a real riskScore or confidence of 0 is a value, not a miss.
   const scan = {
     scanId: targetScanId,
     scan_id_string: targetScanId,
-    patientId: rawScan?.patientId || rawScan?.patient_id || '',
-    patientName: rawScan?.patientName || rawScan?.patient || 'Patient Record',
+    patientId: rawScan?.patientId ?? rawScan?.patient_id ?? '',
+    patientName: rawScan?.patientName ?? rawScan?.patient ?? 'Patient Record',
     uploadDate: rawScan?.uploadDate || rawScan?.date || new Date().toISOString().split('T')[0],
-    prediction: rawScan?.prediction || seeded.prediction,
-    confidence: rawScan?.confidence || seeded.confidence,
-    riskScore: rawScan?.riskScore || seeded.riskScore,
+    prediction: rawScan?.prediction ?? seeded.prediction,
+    confidence: rawScan?.confidence ?? seeded.confidence,
+    riskScore: rawScan?.riskScore ?? rawScan?.risk_score ?? seeded.riskScore,
     doctorStatus: rawScan?.doctorStatus || 'pending',
     doctorNotes: rawScan?.doctorNotes || '',
-    probabilities: rawScan?.probabilities || seeded.probabilities,
+    probabilities: rawScan?.probabilities ?? seeded.probabilities,
     biomarkers: rawScan?.biomarkers && Object.keys(rawScan.biomarkers).length > 0 ? rawScan.biomarkers : seeded.biomarkers,
     gradCamRegions: rawScan?.gradCamRegions || seeded.gradCamRegions,
     brain_regions: rawScan?.brain_regions || {},
+    // Mock rows are never a trained-model result either.
+    modelTrained: !isMock && Boolean(rawScan?.modelTrained ?? rawScan?.model_trained),
   };
 
   const loggedInDoctor = currentUser?.full_name 
@@ -121,12 +167,21 @@ export default function ScanDetailPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const confirmDeleteScan = async () => {
     setIsDeleting(true);
+    setDeleteError('');
     try {
-      await scanAPI.delete(currentScanId).catch(() => {});
-    } catch (e) {}
+      // Confirm server-side before removing locally, or it reappears on reload.
+      await scanAPI.delete(currentScanId);
+    } catch (e) {
+      setIsDeleting(false);
+      setDeleteError(
+        e?.response?.data?.detail || 'Could not delete this scan. Nothing was removed.'
+      );
+      return;
+    }
     dispatch({ type: 'DELETE_SCAN', payload: currentScanId });
     setIsDeleting(false);
     setShowDeleteModal(false);
@@ -498,6 +553,7 @@ export default function ScanDetailPage() {
                 prediction={scan.prediction}
                 confidence={scan.confidence}
                 probabilities={scan.probabilities}
+                modelTrained={scan.modelTrained}
               />
             </div>
 
@@ -590,10 +646,16 @@ export default function ScanDetailPage() {
               </p>
             </div>
 
+            {deleteError && (
+              <div className="p-3 rounded-xl bg-[#F8EAED] border border-[#ECC8CF] text-xs font-semibold text-[#7A1F2B] text-center">
+                {deleteError}
+              </div>
+            )}
+
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={() => { setShowDeleteModal(false); setDeleteError(''); }}
                 disabled={isDeleting}
                 className="flex-1 py-2.5 rounded-xl border border-[#D8C9BC] hover:bg-[#FAF6F3] text-xs font-semibold text-[#5A5550] transition-colors cursor-pointer"
               >

@@ -15,11 +15,24 @@ import {
  * No neon glow, no alarming red — strictly hospital-grade aesthetics.
  */
 export default function RiskGaugeArc({
-  score = 84, // 0 - 100
-  probabilities = { CN: 3.8, MCI: 8.8, AD: 87.4 },
-  prediction = 'AD',
-  confidence = 87.4,
+  // No fabricated defaults here. This used to default to score=84 / AD 87.4%,
+  // and because the caller passes `riskScore` (not `score`) every scan rendered
+  // that fake 84 next to its real probabilities.
+  riskScore,
+  probabilities,
+  prediction,
+  confidence,
+  modelTrained = false,
 }) {
+  const pCN = Number(probabilities?.CN ?? 0);
+  const pMCI = Number(probabilities?.MCI ?? 0);
+  const pAD = Number(probabilities?.AD ?? 0);
+
+  // Same definition the backend uses: MCI counts half, AD counts full.
+  // Derived from the probabilities so the arc can never disagree with the bars.
+  const derivedScore = pMCI * 0.5 + pAD;
+  const score = Number.isFinite(Number(riskScore)) ? Number(riskScore) : derivedScore;
+
   // SVG Arc calculation for semicircle (180 degrees)
   const radius = 78;
   const strokeWidth = 14;
@@ -33,18 +46,15 @@ export default function RiskGaugeArc({
     return { label: 'Low Risk (Cognitively Normal)', color: '#4A7C59', bg: '#EDF5F0' };
   };
 
-  const category = getScoreCategory(score);
-
-  // Softmax chart data for Recharts horizontal bar chart
-  const pCN = probabilities?.CN ?? 0;
-  const pMCI = probabilities?.MCI ?? 0;
-  const pAD = probabilities?.AD ?? 0;
+  const category = getScoreCategory(normalizedScore);
 
   const chartData = [
     { label: 'CN', name: 'Cognitively Normal (CN)', val: pCN, color: '#4A7C59', bg: '#EDF5F0' },
     { label: 'MCI', name: 'Mild Cognitive Impairment (MCI)', val: pMCI, color: '#B87326', bg: '#FAF3E8' },
     { label: 'AD', name: "Alzheimer's Disease (AD)", val: pAD, color: '#7A1F2B', bg: '#F8EAED' },
   ];
+
+  const round1 = (n) => Math.round(n * 10) / 10;
 
   return (
     <div className="clinical-card p-5 bg-white flex flex-col justify-between">
@@ -85,7 +95,7 @@ export default function RiskGaugeArc({
           {/* Centered Big Risk Score Value */}
           <div className="absolute bottom-1 flex flex-col items-center text-center">
             <span className="text-3xl sm:text-4xl font-serif font-bold text-[#22201F] tracking-tight">
-              {score}
+              {Math.round(normalizedScore)}
             </span>
             <span className="text-[10px] font-semibold uppercase tracking-widest text-[#7A756F]">
               Risk Score / 100
@@ -102,6 +112,17 @@ export default function RiskGaugeArc({
             {category.label}
           </span>
         </div>
+
+        {!modelTrained && (
+          <div className="mt-3 rounded-lg border border-[#E5D5A8] bg-[#FDF8EC] px-3 py-2 text-center">
+            <span className="text-[11px] font-bold text-[#8A6412]">
+              DEMO OUTPUT — model has no trained weights
+            </span>
+            <span className="mt-0.5 block text-[10px] text-[#8A6412]">
+              These probabilities are not a diagnosis and must not guide care.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Probabilities Distribution breakdown with animated Recharts BarChart */}
@@ -138,7 +159,7 @@ export default function RiskGaugeArc({
                       <div className="bg-white p-2.5 rounded-xl border border-[#E8E2DA] shadow-clinical-md text-xs">
                         <span className="font-bold text-[#22201F] block">{d.name}</span>
                         <span className="font-mono font-semibold" style={{ color: d.color }}>
-                          Confidence: <strong>{d.val}%</strong>
+                          Confidence: <strong>{round1(d.val)}%</strong>
                         </span>
                       </div>
                     );
@@ -167,7 +188,7 @@ export default function RiskGaugeArc({
                 {item.label}
               </span>
               <span className="font-mono text-xs font-bold text-[#22201F]">
-                {item.val}%
+                {round1(item.val)}%
               </span>
             </div>
           ))}
