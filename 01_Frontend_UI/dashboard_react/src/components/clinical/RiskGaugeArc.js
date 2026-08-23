@@ -31,7 +31,10 @@ export default function RiskGaugeArc({
   // Same definition the backend uses: MCI counts half, AD counts full.
   // Derived from the probabilities so the arc can never disagree with the bars.
   const derivedScore = pMCI * 0.5 + pAD;
-  const score = Number.isFinite(Number(riskScore)) ? Number(riskScore) : derivedScore;
+  // Guard null explicitly: Number(null) is 0, which would render a real-looking
+  // zero for a scan that simply has not been analysed yet.
+  const hasScore = riskScore !== null && riskScore !== undefined && Number.isFinite(Number(riskScore));
+  const score = hasScore ? Number(riskScore) : derivedScore;
 
   // SVG Arc calculation for semicircle (180 degrees)
   const radius = 78;
