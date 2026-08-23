@@ -64,7 +64,7 @@ app.include_router(scan_routes.router)
 app.include_router(admin_routes.router)
 
 
-@app.get("/")
+@app.get("/api")
 async def read_root():
     return {
         "status": "online",
