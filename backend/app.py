@@ -47,5 +47,7 @@ with gr.Blocks(title="NeuroAssist API") as demo:
 # and silently drop every /api route — that was the 404 bug.)
 app = gr.mount_gradio_app(app, demo, path="/")
 
+# Same port gradio's own launch() would have picked. Do NOT read $PORT here —
+# on this Space it is 7861 and already held by another process.
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("GRADIO_SERVER_PORT", 7860)))
