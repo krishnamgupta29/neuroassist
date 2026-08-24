@@ -77,6 +77,7 @@ class ReviewRequest(BaseModel):
     action: str  # ACCEPT FINDING, FLAG FOR REVIEW, OVERRIDE DIAGNOSIS
     doctor_diagnosis: Optional[str] = None
     doctor_notes: Optional[str] = None
+    patient_id: Optional[str] = None
 
 class AuditLogCreate(BaseModel):
     user_id: str

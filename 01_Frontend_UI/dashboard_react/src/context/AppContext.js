@@ -8,6 +8,30 @@ export function getUserStorageKey(user) {
   return String(id).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
 }
 
+// Persistent Decision helper for locking and sign-offs across refreshes
+export function getStoredDecisions(user) {
+  if (!user) return {};
+  const key = `na_decisions_${getUserStorageKey(user)}`;
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) return JSON.parse(saved) || {};
+  } catch (e) {}
+  return {};
+}
+
+export function saveStoredDecision(user, scanId, decision) {
+  if (!user || !scanId) return;
+  const key = `na_decisions_${getUserStorageKey(user)}`;
+  try {
+    const current = getStoredDecisions(user);
+    current[scanId] = decision;
+    if (decision.patientId) {
+      current[decision.patientId] = decision;
+    }
+    localStorage.setItem(key, JSON.stringify(current));
+  } catch (e) {}
+}
+
 // Helper to load persisted patients scoped by user account
 function getInitialPatients(user) {
   if (!user) return [];
@@ -106,14 +130,32 @@ function appReducer(state, action) {
       const fetchedList = Array.isArray(p) ? p : (p?.patients || p?.items || []);
       const user = state.auth?.user;
       const uKey = getUserStorageKey(user);
+      const decisions = getStoredDecisions(user);
+
+      const mergedPatients = fetchedList.map((pat) => {
+        const pId = pat.id || pat._id;
+        const dec = decisions[pId] || (pat.lastScanId && decisions[pat.lastScanId]);
+        if (dec && dec.isSignedOff) {
+          return {
+            ...pat,
+            isSignedOff: true,
+            status: dec.status,
+            doctorStatus: dec.status,
+            doctorNotes: dec.notes,
+            reviewed_at: dec.signedOffAt,
+            reviewed_by: dec.signedOffBy,
+          };
+        }
+        return pat;
+      });
 
       if (uKey !== 'guest') {
         try {
-          localStorage.setItem(`na_patients_${uKey}`, JSON.stringify(fetchedList));
+          localStorage.setItem(`na_patients_${uKey}`, JSON.stringify(mergedPatients));
         } catch (e) {}
       }
 
-      return { ...state, patients: fetchedList };
+      return { ...state, patients: mergedPatients };
     }
 
     case 'ADD_PATIENT': {
@@ -168,15 +210,54 @@ function appReducer(state, action) {
     case 'SET_SCANS': {
       const s = action.payload;
       const fetchedList = Array.isArray(s) ? s : (s?.scans || s?.items || []);
-      const uKey = getUserStorageKey(state.auth?.user);
+      const user = state.auth?.user;
+      const uKey = getUserStorageKey(user);
+      const decisions = getStoredDecisions(user);
+
+      const mergedScans = [...fetchedList];
+      Object.keys(decisions).forEach((k) => {
+        const dec = decisions[k];
+        if (dec && dec.isSignedOff && dec.scanId) {
+          const matchIdx = mergedScans.findIndex(
+            (sc) => (sc.scanId || sc.scan_id_string || sc.id) === dec.scanId || (dec.patientId && (sc.patientId === dec.patientId || sc.patient_id === dec.patientId))
+          );
+          if (matchIdx >= 0) {
+            mergedScans[matchIdx] = {
+              ...mergedScans[matchIdx],
+              doctorStatus: dec.status,
+              status: dec.status,
+              doctorNotes: dec.notes,
+              isSignedOff: true,
+              signedOffAt: dec.signedOffAt,
+              signedOffBy: dec.signedOffBy,
+            };
+          } else {
+            mergedScans.unshift({
+              scanId: dec.scanId,
+              scan_id_string: dec.scanId,
+              patientId: dec.patientId,
+              status: dec.status,
+              doctorStatus: dec.status,
+              doctorNotes: dec.notes,
+              isSignedOff: true,
+              signedOffAt: dec.signedOffAt,
+              signedOffBy: dec.signedOffBy,
+              prediction: dec.prediction || 'CN',
+              riskScore: dec.riskScore || 18,
+              date: dec.signedOffAt ? dec.signedOffAt.split(' · ')[0] : new Date().toISOString().split('T')[0],
+              uploadDate: dec.signedOffAt ? dec.signedOffAt.split(' · ')[0] : new Date().toISOString().split('T')[0],
+            });
+          }
+        }
+      });
 
       if (uKey !== 'guest') {
         try {
-          localStorage.setItem(`na_scans_${uKey}`, JSON.stringify(fetchedList));
+          localStorage.setItem(`na_scans_${uKey}`, JSON.stringify(mergedScans));
         } catch (e) {}
       }
 
-      return { ...state, scans: fetchedList };
+      return { ...state, scans: mergedScans };
     }
 
     case 'DELETE_SCAN': {
@@ -252,6 +333,19 @@ function appReducer(state, action) {
       const { scanId, patientId, status, notes, signedOffAt, signedOffBy, prediction, riskScore } = action.payload;
       const currentScans = Array.isArray(state.scans) ? state.scans : [];
       let found = false;
+
+      // Persist decision permanently
+      saveStoredDecision(state.auth?.user, scanId, {
+        scanId,
+        patientId,
+        status,
+        notes,
+        signedOffAt,
+        signedOffBy,
+        isSignedOff: true,
+        prediction,
+        riskScore,
+      });
 
       const updatedScans = currentScans.map((s) => {
         const sId = s.scanId || s.scan_id_string || s.id;

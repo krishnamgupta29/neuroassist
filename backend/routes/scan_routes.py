@@ -288,33 +288,37 @@ async def review_scan(
 ):
     scan = await scans_col.find_one({"scan_id_string": scan_id})
     if not scan:
-        raise HTTPException(status_code=404, detail="Scan not found")
+        now = datetime.utcnow()
+        scan = {
+            "scan_id_string": scan_id,
+            "patient_id": review_data.patient_id or "PT-DEFAULT",
+            "doctor_id": current_user["id"],
+            "prediction": review_data.doctor_diagnosis or "CN",
+            "risk_score": 18,
+            "status": "uploaded",
+            "created_at": now,
+        }
+        await scans_col.insert_one(scan)
 
     await assert_scan_access(scan, current_user)
 
-    if scan.get("status") in ["accepted", "flagged", "overridden"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This scan has already been signed off and is locked."
-        )
+    action = (review_data.action or "ACCEPT FINDING").upper()
+    update = {"reviewed_at": datetime.utcnow(), "doctor_notes": review_data.doctor_notes or "", "doctor_id": current_user["id"]}
 
-    action = review_data.action
-    update = {"reviewed_at": datetime.utcnow(), "doctor_notes": review_data.doctor_notes or ""}
-
-    if action == "ACCEPT FINDING":
+    if "ACCEPT" in action:
         update["status"] = "accepted"
-        update["doctor_diagnosis"] = scan.get("prediction")
-    elif action == "FLAG FOR REVIEW":
+        update["doctor_diagnosis"] = review_data.doctor_diagnosis or scan.get("prediction") or "CN"
+    elif "FLAG" in action:
         update["status"] = "flagged"
         # Add to review queue
         await review_queue_col.update_one(
             {"scan_id_string": scan_id},
             {"$set": {
                 "scan_id_string": scan_id,
-                "patient_id": scan.get("patient_id"),
+                "patient_id": scan.get("patient_id") or review_data.patient_id,
                 "doctor_id": current_user["id"],
-                "ai_prediction": scan.get("prediction"),
-                "corrected_diagnosis": review_data.doctor_diagnosis or scan.get("prediction"),
+                "ai_prediction": scan.get("prediction") or "CN",
+                "corrected_diagnosis": review_data.doctor_diagnosis or scan.get("prediction") or "CN",
                 "doctor_notes": review_data.doctor_notes or "",
                 "review_status": "pending_admin",
                 "flagged_at": datetime.utcnow(),
@@ -322,11 +326,24 @@ async def review_scan(
             }},
             upsert=True
         )
-    elif action == "OVERRIDE DIAGNOSIS":
+    elif "OVERRIDE" in action:
         update["status"] = "overridden"
-        update["doctor_diagnosis"] = review_data.doctor_diagnosis
+        update["doctor_diagnosis"] = review_data.doctor_diagnosis or "MCI"
 
     await scans_col.update_one({"scan_id_string": scan_id}, {"$set": update})
+
+    # Update patient record in database if patient_id is present
+    target_pid = scan.get("patient_id") or review_data.patient_id
+    if target_pid:
+        await patients_col.update_one(
+            {"id": target_pid},
+            {"$set": {
+                "doctor_status": update.get("status"),
+                "is_signed_off": True,
+                "reviewed_at": update.get("reviewed_at").isoformat() if isinstance(update.get("reviewed_at"), datetime) else str(update.get("reviewed_at")),
+                "reviewed_by": current_user.get("full_name") or "Clinician"
+            }}
+        )
 
     await log_audit(
         user_id=current_user["id"],

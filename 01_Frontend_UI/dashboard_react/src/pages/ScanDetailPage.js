@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, getStoredDecisions } from '../context/AppContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import RiskGaugeArc from '../components/clinical/RiskGaugeArc';
 import GradCamViewer from '../components/clinical/GradCamViewer';
@@ -157,20 +157,26 @@ export default function ScanDetailPage() {
     : (patient.full_name || patient.name || scan.patientName || 'Patient Record');
   const pMrn = patient.patient_code || patient.mrn || 'NA-2026-0035';
   const pInitials = pName.split(' ').map(n => n[0]).join('').slice(0, 2) || 'PT';
+  const currentScanId = scanId || targetScanId || rawScan?.scanId || rawScan?.scan_id_string || rawScan?.id || 'SCN-DEFAULT';
 
-  const currentScanId = scanId || rawScan?.scanId || rawScan?.scan_id_string || rawScan?.id || 'SCN-DEFAULT';
+  const userDecisions = useMemo(() => getStoredDecisions(currentUser), [currentUser]);
+  const localDecision = userDecisions[currentScanId] || (targetPatient?.id ? userDecisions[targetPatient.id] : null) || (targetPatient?._id ? userDecisions[targetPatient._id] : null);
+
   const isServerReviewed = Boolean(
+    localDecision?.isSignedOff ||
+    rawScan?.isSignedOff ||
     rawScan?.reviewed_at ||
     rawScan?.reviewedAt ||
     rawScan?.doctor_diagnosis ||
     rawScan?.doctorDiagnosis ||
     (rawScan?.doctorStatus && rawScan?.doctorStatus !== 'pending') ||
-    (rawScan?.status && ['accepted', 'flagged', 'overridden', 'signed_off'].includes(rawScan.status))
+    (rawScan?.status && ['accepted', 'flagged', 'overridden', 'signed_off'].includes(rawScan.status)) ||
+    targetPatient?.isSignedOff
   );
 
-  const serverReviewStatus = rawScan?.doctorStatus || rawScan?.status || (rawScan?.doctor_diagnosis ? 'accepted' : 'accepted');
-  const serverReviewNotes = rawScan?.doctor_notes || rawScan?.doctorNotes || '';
-  const serverReviewedTime = rawScan?.reviewed_at || rawScan?.reviewedAt || '';
+  const serverReviewStatus = localDecision?.status || rawScan?.doctorStatus || rawScan?.status || targetPatient?.doctorStatus || 'accepted';
+  const serverReviewNotes = localDecision?.notes || rawScan?.doctor_notes || rawScan?.doctorNotes || targetPatient?.doctorNotes || '';
+  const serverReviewedTime = localDecision?.signedOffAt || rawScan?.reviewed_at || rawScan?.reviewedAt || targetPatient?.reviewed_at || '';
 
   const [decisionNotes, setDecisionNotes] = useState(serverReviewNotes || scan.doctorNotes || '');
   const [selectedStatus, setSelectedStatus] = useState(serverReviewStatus);

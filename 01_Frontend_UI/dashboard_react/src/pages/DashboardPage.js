@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, getStoredDecisions } from '../context/AppContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import MetricCard from '../components/common/MetricCard';
 import StatusBadge from '../components/common/StatusBadge';
@@ -74,6 +74,8 @@ export default function DashboardPage() {
     return 'CN';
   };
 
+  const storedDecisions = useMemo(() => getStoredDecisions(state.auth?.user), [state.auth?.user]);
+
   // Build unified patient evaluation list linking each patient with their latest scan or baseline diagnosis
   const patientEvaluations = useMemo(() => {
     return patients.map((p, idx) => {
@@ -92,13 +94,16 @@ export default function DashboardPage() {
         return false;
       });
 
+      const storedDec = storedDecisions[pId] || (matchingScan && storedDecisions[matchingScan.scanId || matchingScan.scan_id_string || matchingScan.id]);
+
       const normalizedCond = getConditionCode(matchingScan?.prediction || matchingScan?.condition || p.condition || p.diagnosis);
       const defaultRisk = normalizedCond === 'AD' ? 82 : normalizedCond === 'MCI' ? 52 : 18;
       const riskScore = matchingScan?.riskScore ?? matchingScan?.risk_score ?? p.riskScore ?? p.risk_score ?? defaultRisk;
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
-      const status = matchingScan?.doctorStatus || matchingScan?.status || p.doctorStatus || p.status || 'pending';
+      const status = storedDec?.status || matchingScan?.doctorStatus || matchingScan?.status || p.doctorStatus || p.status || 'pending';
       const isSignedOff = Boolean(
+        storedDec?.isSignedOff ||
         p.isSignedOff ||
         matchingScan?.isSignedOff ||
         matchingScan?.reviewed_at ||
@@ -127,7 +132,7 @@ export default function DashboardPage() {
         isRawScan: Boolean(matchingScan),
       };
     });
-  }, [patients, scans]);
+  }, [patients, scans, storedDecisions]);
 
   // Aggregate stats across the full cohort
   const totalPatientsCount = patientEvaluations.length;
