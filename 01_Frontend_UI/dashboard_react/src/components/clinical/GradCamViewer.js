@@ -347,7 +347,7 @@ export default function GradCamViewer({
     }
 
     ctx.putImageData(imgData, 0, 0);
-  }, [showHeatmap, sliceIndex, activeSliceView, cond, colorMap, patientProfile, getColorMapRGB]);
+  }, [showHeatmap, sliceIndex, activeSliceView, colorMap, patientProfile, getColorMapRGB]);
 
   useEffect(() => {
     renderCanvasHeatmap();

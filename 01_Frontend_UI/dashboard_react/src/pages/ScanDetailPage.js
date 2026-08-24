@@ -30,16 +30,16 @@ export default function ScanDetailPage() {
   const currentUser = state.auth?.user;
   const isPatient = currentUser?.role === 'patient';
 
-  const scansList = Array.isArray(state.scans) ? state.scans : [];
-  const patientsList = Array.isArray(state.patients) ? state.patients : [];
+  const scansList = useMemo(() => (Array.isArray(state.scans) ? state.scans : []), [state.scans]);
+  const patientsList = useMemo(() => (Array.isArray(state.patients) ? state.patients : []), [state.patients]);
 
-  // Match this scanId only. Falling back to scansList[0] used to render a
-  // different patient's scan under the requested id.
-  const listScan = scansList.find(s => (s.scanId || s.scan_id_string || s.id) === scanId);
+  // Match this scanId only.
+  const listScan = useMemo(
+    () => scansList.find(s => (s.scanId || s.scan_id_string || s.id) === scanId),
+    [scansList, scanId]
+  );
   const targetScanId = listScan?.scanId || listScan?.scan_id_string || listScan?.id || scanId;
 
-  // /api/scan/history carries no probabilities, risk score or biomarkers, so
-  // reading only from it meant this page always rendered seeded mock numbers.
   // Pull the real record for this scan.
   const [detail, setDetail] = useState(null);
   useEffect(() => {
@@ -52,32 +52,32 @@ export default function ScanDetailPage() {
     return () => { cancelled = true; };
   }, [scanId]);
 
-  const pct = v => (typeof v === 'number' ? v * 100 : undefined);
-
-  const rawScan = detail
-    ? {
-        ...listScan,
-        patientId: detail.patient_id,
-        patientName: detail.patient_name,
-        uploadDate: detail.scan_date,
-        prediction: detail.prediction,
-        riskScore: detail.risk_score,
-        confidence: Math.max(
-          detail.confidence_cn ?? 0,
-          detail.confidence_mci ?? 0,
-          detail.confidence_ad ?? 0
-        ) * 100,
-        probabilities: {
-          CN: pct(detail.confidence_cn),
-          MCI: pct(detail.confidence_mci),
-          AD: pct(detail.confidence_ad),
-        },
-        biomarkers: detail.biomarkers,
-        brain_regions: detail.brain_regions,
-        doctorNotes: detail.doctor_notes,
-        modelTrained: detail.model_trained,
-      }
-    : listScan;
+  const rawScan = useMemo(() => {
+    if (!detail) return listScan;
+    const pct = v => (typeof v === 'number' ? v * 100 : undefined);
+    return {
+      ...listScan,
+      patientId: detail.patient_id,
+      patientName: detail.patient_name,
+      uploadDate: detail.scan_date,
+      prediction: detail.prediction,
+      riskScore: detail.risk_score,
+      confidence: Math.max(
+        detail.confidence_cn ?? 0,
+        detail.confidence_mci ?? 0,
+        detail.confidence_ad ?? 0
+      ) * 100,
+      probabilities: {
+        CN: pct(detail.confidence_cn),
+        MCI: pct(detail.confidence_mci),
+        AD: pct(detail.confidence_ad),
+      },
+      biomarkers: detail.biomarkers,
+      brain_regions: detail.brain_regions,
+      doctorNotes: detail.doctor_notes,
+      modelTrained: detail.model_trained,
+    };
+  }, [detail, listScan]);
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
