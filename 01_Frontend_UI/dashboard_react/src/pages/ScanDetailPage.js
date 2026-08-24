@@ -79,20 +79,49 @@ export default function ScanDetailPage() {
       }
     : listScan;
 
+  // Resolve patient from state.patients
+  const targetPatient = useMemo(() => {
+    const sPId = rawScan?.patientId || rawScan?.patient_id;
+    const sPName = (rawScan?.patientName || rawScan?.patient || '').trim().toLowerCase();
+    const sMrn = (rawScan?.patient_code || rawScan?.mrn || '').trim().toLowerCase();
+
+    return patientsList.find((p) => {
+      const pId = p.id || p._id;
+      const pName = (p.full_name || p.name || '').trim().toLowerCase();
+      const pMrn = (p.patient_code || p.mrn || '').trim().toLowerCase();
+      if (sPId && pId && sPId === pId) return true;
+      if (sMrn && pMrn && sMrn === pMrn) return true;
+      if (sPName && pName && sPName === pName) return true;
+      return false;
+    }) || patientsList[0] || null;
+  }, [patientsList, rawScan]);
+
+  const rawPatientCond = (rawScan?.prediction || targetPatient?.condition || targetPatient?.diagnosis || 'CN').toUpperCase();
+  const unifiedCond = rawPatientCond.includes('AD') ? 'AD' : rawPatientCond.includes('MCI') ? 'MCI' : 'CN';
+
   // Seeded mock values, used only when no real scan is loaded (demo browsing).
-  const seeded = useMemo(() => generateScanData(targetScanId), [targetScanId]);
+  const seeded = useMemo(() => generateScanData(targetScanId, '', unifiedCond), [targetScanId, unifiedCond]);
   const isMock = !rawScan;
+
+  const patientAge = targetPatient?.age || (targetPatient?.date_of_birth ? (new Date().getFullYear() - new Date(targetPatient.date_of_birth).getFullYear()) : (rawScan?.patientAge || 65));
+  const patientGender = targetPatient?.gender || rawScan?.patientGender || 'Male';
+
+  const loggedInDoctor = currentUser?.full_name 
+    ? (currentUser.full_name.startsWith('Dr.') ? currentUser.full_name : `Dr. ${currentUser.full_name}`)
+    : (targetPatient?.assignedDoctor || 'Assigned Clinician');
 
   // `??` not `||`: a real riskScore or confidence of 0 is a value, not a miss.
   const scan = {
     scanId: targetScanId,
     scan_id_string: targetScanId,
-    patientId: rawScan?.patientId ?? rawScan?.patient_id ?? '',
-    patientName: rawScan?.patientName ?? rawScan?.patient ?? 'Patient Record',
-    uploadDate: rawScan?.uploadDate || rawScan?.date || new Date().toISOString().split('T')[0],
-    prediction: rawScan?.prediction ?? seeded.prediction,
+    patientId: rawScan?.patientId ?? rawScan?.patient_id ?? targetPatient?.id ?? '',
+    patientName: targetPatient?.full_name || targetPatient?.name || rawScan?.patientName || rawScan?.patient || 'Patient Record',
+    patientAge: patientAge,
+    patientGender: patientGender,
+    uploadDate: rawScan?.uploadDate || rawScan?.date || targetPatient?.lastScanDate || new Date().toISOString().split('T')[0],
+    prediction: rawScan?.prediction ?? unifiedCond,
     confidence: rawScan?.confidence ?? seeded.confidence,
-    riskScore: rawScan?.riskScore ?? rawScan?.risk_score ?? seeded.riskScore,
+    riskScore: rawScan?.riskScore ?? rawScan?.risk_score ?? targetPatient?.riskScore ?? seeded.riskScore,
     doctorStatus: rawScan?.doctorStatus || 'pending',
     doctorNotes: rawScan?.doctorNotes || '',
     probabilities: rawScan?.probabilities ?? seeded.probabilities,
@@ -103,37 +132,21 @@ export default function ScanDetailPage() {
     modelTrained: !isMock && Boolean(rawScan?.modelTrained ?? rawScan?.model_trained),
   };
 
-  const loggedInDoctor = currentUser?.full_name 
-    ? (currentUser.full_name.startsWith('Dr.') ? currentUser.full_name : `Dr. ${currentUser.full_name}`)
-    : 'Dr. Sarah Lin, MD';
-
-  const scanPId = scan.patientId || scan.patient_id;
-  const scanPName = (scan.patientName || scan.patient || '').trim().toLowerCase();
-  const scanMrn = (scan.patient_code || scan.mrn || '').trim().toLowerCase();
-
-  const patient = patientsList.find((p) => {
-    const pId = p.id || p._id;
-    const pName = (p.full_name || p.name || '').trim().toLowerCase();
-    const pMrn = (p.patient_code || p.mrn || '').trim().toLowerCase();
-    if (scanPId && pId && scanPId === pId) return true;
-    if (scanMrn && pMrn && scanMrn === pMrn) return true;
-    if (scanPName && pName && scanPName === pName) return true;
-    return false;
-  }) || patientsList[0] || {
+  const patient = targetPatient || {
     id: scan.patientId || 'PT-0001',
-    name: scan.patientName || currentUser?.full_name || 'Patient Record',
-    full_name: scan.patientName || currentUser?.full_name || 'Patient Record',
-    mrn: scan.patient_code || scan.mrn || 'NA-2026-0001',
-    patient_code: scan.patient_code || scan.mrn || 'NA-2026-0001',
-    age: scan.patientAge || 65,
-    gender: scan.patientGender || 'Unknown',
+    name: scan.patientName,
+    full_name: scan.patientName,
+    mrn: targetPatient?.patient_code || targetPatient?.mrn || 'NA-2026-0035',
+    patient_code: targetPatient?.patient_code || targetPatient?.mrn || 'NA-2026-0035',
+    age: patientAge,
+    gender: patientGender,
     assignedDoctor: loggedInDoctor
   };
 
   const pName = isPatient 
     ? (currentUser?.full_name || currentUser?.name || scan.patientName || 'My Scan')
     : (patient.full_name || patient.name || scan.patientName || 'Patient Record');
-  const pMrn = patient.patient_code || patient.mrn || 'NA-2026-0042';
+  const pMrn = patient.patient_code || patient.mrn || 'NA-2026-0035';
   const pInitials = pName.split(' ').map(n => n[0]).join('').slice(0, 2) || 'PT';
 
   const currentScanId = scanId || rawScan?.scanId || rawScan?.scan_id_string || rawScan?.id || 'SCN-DEFAULT';
@@ -308,7 +321,7 @@ export default function ScanDetailPage() {
                 <span className="font-mono text-[11px] text-[#A39E98]">({pMrn})</span>
               </div>
               <span className="text-[#7A756F] text-[11px]">
-                Age: <strong>{patient.age || scan.patientAge || '—'} Yrs</strong> · Gender: <strong>{patient.gender || scan.patientGender || '—'}</strong> · Assigned: <strong>{patient.assignedDoctor || loggedInDoctor}</strong>
+                Age: <strong>{scan.patientAge || patient.age || (patient.date_of_birth ? (new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()) : 68)} Yrs</strong> · Gender: <strong>{patient.gender || scan.patientGender || 'Male'}</strong> · Assigned: <strong>{patient.assignedDoctor || loggedInDoctor}</strong>
               </span>
             </div>
           </div>

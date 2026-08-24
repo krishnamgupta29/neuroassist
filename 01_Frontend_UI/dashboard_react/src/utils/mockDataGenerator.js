@@ -60,43 +60,48 @@ function randInt(rng, min, max) {
  * Generate mock scan data for a given scanId string or file identifier.
  * Returns deterministic clinical values that vary per scan, but are 100% reproducible for the same file.
  */
-export function generateScanData(scanId, fileName = '') {
+export function generateScanData(scanId, fileName = '', targetCondition = null) {
   const rng = seededRng(scanId);
 
-  // Check for condition keywords in filename or scanId
-  const searchStr = `${scanId} ${fileName}`.toLowerCase();
+  // If target condition is explicitly provided, enforce it
   let prediction;
-  if (
-    searchStr.includes('_cn') ||
-    searchStr.includes('cn_') ||
-    searchStr.includes('-cn') ||
-    searchStr.includes('cn.') ||
-    searchStr.includes('normal') ||
-    searchStr.includes('control') ||
-    searchStr.includes('cognitively_normal')
-  ) {
-    prediction = 'CN';
-  } else if (
-    searchStr.includes('_ad') ||
-    searchStr.includes('ad_') ||
-    searchStr.includes('-ad') ||
-    searchStr.includes('ad.') ||
-    searchStr.includes('alzheimer') ||
-    searchStr.includes('dementia')
-  ) {
-    prediction = 'AD';
-  } else if (
-    searchStr.includes('_mci') ||
-    searchStr.includes('mci_') ||
-    searchStr.includes('-mci') ||
-    searchStr.includes('mci.') ||
-    searchStr.includes('impairment')
-  ) {
-    prediction = 'MCI';
+  if (targetCondition && ['CN', 'MCI', 'AD'].includes(targetCondition.toUpperCase())) {
+    prediction = targetCondition.toUpperCase();
   } else {
-    // Deterministic weighted prediction class from file signature seed
-    const roll = rng();
-    prediction = roll < 0.35 ? 'CN' : roll < 0.70 ? 'MCI' : 'AD';
+    // Check for condition keywords in filename or scanId
+    const searchStr = `${scanId} ${fileName}`.toLowerCase();
+    if (
+      searchStr.includes('_cn') ||
+      searchStr.includes('cn_') ||
+      searchStr.includes('-cn') ||
+      searchStr.includes('cn.') ||
+      searchStr.includes('normal') ||
+      searchStr.includes('control') ||
+      searchStr.includes('cognitively_normal')
+    ) {
+      prediction = 'CN';
+    } else if (
+      searchStr.includes('_ad') ||
+      searchStr.includes('ad_') ||
+      searchStr.includes('-ad') ||
+      searchStr.includes('ad.') ||
+      searchStr.includes('alzheimer') ||
+      searchStr.includes('dementia')
+    ) {
+      prediction = 'AD';
+    } else if (
+      searchStr.includes('_mci') ||
+      searchStr.includes('mci_') ||
+      searchStr.includes('-mci') ||
+      searchStr.includes('mci.') ||
+      searchStr.includes('impairment')
+    ) {
+      prediction = 'MCI';
+    } else {
+      // Deterministic weighted prediction class from file signature seed
+      const roll = rng();
+      prediction = roll < 0.35 ? 'CN' : roll < 0.70 ? 'MCI' : 'AD';
+    }
   }
 
   // Confidence varies by class
