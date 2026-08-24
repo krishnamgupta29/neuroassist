@@ -177,7 +177,7 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} autoComplete="off" className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
           {error && (
             <div className="p-3.5 rounded-xl bg-[#F8EAED] border border-[#ECC8CF] text-[#7A1F2B] text-xs flex items-center gap-2">
               <span className="font-bold">Error:</span> {error}
@@ -193,6 +193,10 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
               type="text"
               name="fullName"
               required
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="words"
+              spellCheck="false"
               placeholder="e.g. Eleanor Vance"
               value={formData.fullName}
               onChange={handleChange}
@@ -212,6 +216,7 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
                 required
                 min="1"
                 max="120"
+                autoComplete="off"
                 placeholder="e.g. 72"
                 value={formData.age}
                 onChange={handleChange}
