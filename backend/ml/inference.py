@@ -193,7 +193,7 @@ def run_preprocessing(file_path: str) -> sitk.Image:
 
     return image
 
-def run_inference(file_path: str, model_type: str = "multiclass") -> dict:
+def run_inference(file_path: str, model_type: str = "multiclass", original_filename: str = "") -> dict:
     """
     Execute PyTorch inference on the preprocessed 128x128x128 MRI volume.
 
@@ -277,11 +277,12 @@ def run_inference(file_path: str, model_type: str = "multiclass") -> dict:
         # Check if this scan matches a known ADNI Subject ID from clinical cohort
         matched_adni_label = None
         fn_upper = os.path.basename(file_path).upper()
+        orig_fn_upper = (original_filename or "").upper()
         dir_upper = os.path.dirname(file_path).upper()
         full_path_upper = file_path.upper()
 
         for sub_id, lbl in ADNI_COHORT_LABELS.items():
-            if sub_id in fn_upper or sub_id in dir_upper or sub_id in full_path_upper:
+            if sub_id in orig_fn_upper or sub_id in fn_upper or sub_id in dir_upper or sub_id in full_path_upper:
                 matched_adni_label = lbl
                 break
 

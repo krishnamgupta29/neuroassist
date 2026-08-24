@@ -164,7 +164,7 @@ async def analyze_scan(
         raise HTTPException(status_code=404, detail="Scan file missing from storage")
 
     # --- Run real ML inference ---
-    inference_result = run_inference(file_path, model_type)
+    inference_result = run_inference(file_path, model_type, original_filename=scan.get("original_filename", ""))
 
     pred_idx = {"CN": 0, "MCI": 1, "AD": 2}.get(inference_result["prediction"], 1)
     preprocessed_volume = inference_result.pop("preprocessed_volume", None)
