@@ -438,7 +438,7 @@ export default function GradCamViewer({
                 cond === 'MCI' ? 'bg-[#FAF3E8] text-[#8A5A14] border border-[#F0DEC2]' :
                 'bg-[#EDF5F0] text-[#2E523A] border border-[#CFE3D5]'
               }`}>
-                {cond} · {confidence}%
+                {cond} · {typeof confidence === 'number' ? parseFloat(confidence.toFixed(1)) : confidence}%
               </span>
             </div>
             <p className="text-[10px] text-[#7A756F] truncate mt-0.5">

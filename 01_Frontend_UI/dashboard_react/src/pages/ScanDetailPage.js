@@ -69,6 +69,12 @@ export default function ScanDetailPage() {
   const rawScan = useMemo(() => {
     if (!detail) return listScan;
     const pct = v => (typeof v === 'number' ? (v <= 1.0 ? parseFloat((v * 100).toFixed(1)) : parseFloat(v.toFixed(1))) : undefined);
+    const maxConf = Math.max(
+      detail.confidence_cn ?? 0,
+      detail.confidence_mci ?? 0,
+      detail.confidence_ad ?? 0
+    );
+    const rawConf = maxConf <= 1.0 ? maxConf * 100 : maxConf;
     return {
       ...listScan,
       patientId: detail.patient_id,
@@ -76,11 +82,7 @@ export default function ScanDetailPage() {
       uploadDate: detail.scan_date,
       prediction: detail.prediction,
       riskScore: detail.risk_score,
-      confidence: Math.max(
-        detail.confidence_cn ?? 0,
-        detail.confidence_mci ?? 0,
-        detail.confidence_ad ?? 0
-      ) * 100,
+      confidence: parseFloat(rawConf.toFixed(1)),
       probabilities: {
         CN: pct(detail.confidence_cn),
         MCI: pct(detail.confidence_mci),

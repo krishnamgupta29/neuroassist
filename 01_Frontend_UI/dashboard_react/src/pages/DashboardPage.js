@@ -86,11 +86,13 @@ export default function DashboardPage() {
 
       // Search matching scan in state.scans
       const matchingScan = scans.find(s => {
-        const sPId = s.patientId || s.patient_id;
+        const sPId = String(s.patientId || s.patient_id || '');
         const sPName = (s.patientName || s.patient || '').trim().toLowerCase();
-        const sMrn = s.patient_code || s.mrn;
-        if (sPId && pId && sPId === pId) return true;
-        if (sMrn && (sMrn === pMrn || sMrn === p.patient_code)) return true;
+        const sMrn = (s.patient_code || s.mrn || '').trim().toLowerCase();
+        const sScanId = s.scanId || s.scan_id_string || s.id;
+        if (sScanId && (sScanId === p.scanId || sScanId === p.scan_id_string)) return true;
+        if (sPId && pId && sPId === String(pId)) return true;
+        if (sMrn && (sMrn === pMrn.toLowerCase() || sMrn === (p.patient_code || '').toLowerCase())) return true;
         if (sPName && sPName === pName.trim().toLowerCase()) return true;
         return false;
       });
@@ -101,7 +103,7 @@ export default function DashboardPage() {
       const patientCond = storedDec?.prediction || matchingScan?.prediction || matchingScan?.condition || p.condition || p.diagnosis || null;
       const seeded = generateScanData(scanId, '', patientCond);
 
-      const rawFinding = patientCond || seeded.prediction || 'CN';
+      const rawFinding = matchingScan?.prediction || patientCond || seeded.prediction || 'CN';
       const normalizedCond = getConditionCode(rawFinding);
 
       const riskScore = storedDec?.riskScore ?? matchingScan?.riskScore ?? matchingScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : seeded.riskScore);
