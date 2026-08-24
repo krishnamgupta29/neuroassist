@@ -119,7 +119,8 @@ def resnet10(**kwargs):
 WEIGHTS_LOADED = False
 
 # Absolute or backend-relative path to a state_dict saved with torch.save().
-WEIGHTS_PATH = os.getenv("NEUROASSIST_WEIGHTS", "")
+DEFAULT_WEIGHTS = os.path.join(os.path.dirname(__file__), "neuroassist_resnet10.pth")
+WEIGHTS_PATH = os.getenv("NEUROASSIST_WEIGHTS", DEFAULT_WEIGHTS)
 
 
 def get_multiclass_model():

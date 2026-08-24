@@ -1,0 +1,10 @@
+NeuroAssist ResNet-10 Production Training Report
+Device: CUDA
+Test Balanced Accuracy: 32.01%
+Test Macro F1: 19.16%
+Test AUC: 34.19%
+Confusion Matrix:
+[[ 8  1  0]
+ [13  1  0]
+ [ 5  1  0]]
+Weights Path: D:\neuroassist\backend\ml\neuroassist_resnet10.pth
