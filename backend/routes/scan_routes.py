@@ -247,20 +247,28 @@ async def get_scan_history(
     for s in scans:
         patient_doc = await patients_col.find_one({"_id": ObjectId(s.get("patient_id", "000000000000000000000000"))})
         patient_name = patient_doc.get("full_name", "Unknown") if patient_doc else "Unknown"
-        patient_code = patient_doc.get("patient_code", "") if patient_doc else ""
-        max_conf = max(s.get("conf_cn") or 0, s.get("conf_mci") or 0, s.get("conf_ad") or 0)
-
         result.append({
             "id": s.get("scan_id_string"),
+            "scanId": s.get("scan_id_string"),
+            "scan_id_string": s.get("scan_id_string"),
             "date": s.get("upload_date").isoformat() if s.get("upload_date") else None,
+            "uploadDate": s.get("upload_date").isoformat() if s.get("upload_date") else None,
             "patient": patient_name,
+            "patientName": patient_name,
             "patient_code": patient_code,
+            "mrn": patient_code,
             "patient_id": s.get("patient_id"),
+            "patientId": s.get("patient_id"),
+            "prediction": s.get("prediction"),
             "diagnosis": s.get("prediction"),
+            "risk_score": s.get("risk_score"),
+            "riskScore": s.get("risk_score"),
             "confidence": round(max_conf * 100, 1),
             "status": s.get("status"),
+            "doctorStatus": s.get("status"),
             "urgency": s.get("urgency"),
             "model": s.get("model_used"),
+            "model_used": s.get("model_used"),
         })
 
     return {"items": result, "total": len(result)}

@@ -100,13 +100,13 @@ export default function DashboardPage() {
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || getPatientDeterministicScanId(p);
       const storedDec = storedDecisions[pId] || (matchingScan && storedDecisions[matchingScan.scanId || matchingScan.scan_id_string || matchingScan.id]) || storedDecisions[scanId];
 
-      const patientCond = storedDec?.prediction || matchingScan?.prediction || matchingScan?.condition || p.condition || p.diagnosis || null;
+      const patientCond = storedDec?.prediction || matchingScan?.prediction || matchingScan?.diagnosis || matchingScan?.condition || p.condition || p.diagnosis || null;
       const seeded = generateScanData(scanId, '', patientCond);
 
-      const rawFinding = matchingScan?.prediction || patientCond || seeded.prediction || 'CN';
+      const rawFinding = matchingScan?.prediction || matchingScan?.diagnosis || patientCond || seeded.prediction || 'CN';
       const normalizedCond = getConditionCode(rawFinding);
 
-      const riskScore = storedDec?.riskScore ?? matchingScan?.riskScore ?? matchingScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : seeded.riskScore);
+      const riskScore = storedDec?.riskScore ?? matchingScan?.riskScore ?? matchingScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : (normalizedCond === 'MCI' ? 49 : normalizedCond === 'AD' ? 78 : 18));
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
       const status = storedDec?.status || matchingScan?.doctorStatus || matchingScan?.status || p.doctorStatus || p.status || 'pending';
       const isSignedOff = Boolean(
