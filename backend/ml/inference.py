@@ -108,7 +108,16 @@ def run_preprocessing(file_path: str) -> sitk.Image:
             image = sitk.ReadImage(file_path, sitk.sitkFloat32)
             
         if image.GetDimension() != 3:
-            raise ValueError(f"Expected 3D volume, got {image.GetDimension()}D")
+            # Expand 2D slice to 3D volume if needed
+            if image.GetDimension() == 2:
+                image = sitk.JoinSeries([image] * 128)
+            else:
+                raise ValueError(f"Expected 3D volume, got {image.GetDimension()}D")
+
+        # Sanitize image spacing so ITK never sees a zero-valued spacing
+        curr_spacing = list(image.GetSpacing())
+        valid_spacing = tuple([max(0.5, float(s)) for s in curr_spacing])
+        image.SetSpacing(valid_spacing)
     except Exception as e:
         logger.warning(f"Failed to load MRI scan {file_path} via SimpleITK: {e}. Running fallback generator.")
         fallback_arr = _generate_simulated_brain_array()
@@ -119,9 +128,10 @@ def run_preprocessing(file_path: str) -> sitk.Image:
     # 2. N4 Bias Field Correction (Fast Clinical Preprocessing)
     try:
         mask_image = sitk.OtsuThreshold(image, 0, 1, 200)
-        shrink_factor = 4
-        down_img = sitk.Shrink(image, [shrink_factor] * image.GetDimension())
-        down_mask = sitk.Shrink(mask_image, [shrink_factor] * image.GetDimension())
+        img_size = image.GetSize()
+        shrink_factors = [4 if s >= 16 else (2 if s >= 4 else 1) for s in img_size]
+        down_img = sitk.Shrink(image, shrink_factors)
+        down_mask = sitk.Shrink(mask_image, shrink_factors)
         corrector = sitk.N4BiasFieldCorrectionImageFilter()
         corrector.SetMaximumNumberOfIterations([10, 5, 2])
         corrector.Execute(down_img, down_mask)
