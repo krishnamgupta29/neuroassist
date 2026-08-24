@@ -329,7 +329,7 @@ export default function DashboardPage() {
                         const { patientId, patientName, mrn, scanId, prediction, riskScore, isSignedOff } = item;
                         return (
                           <tr key={scanId || idx} className="hover:bg-[#FAF6F3] transition-colors group">
-                            <td className="py-3 px-3">
+                            <td className="py-3 px-3 whitespace-nowrap">
                               <Link
                                 to={`/dashboard/patients/${patientId}`}
                                 className="font-bold text-[#22201F] hover:text-[#7A1F2B] hover:underline block"
@@ -339,14 +339,14 @@ export default function DashboardPage() {
                               <span className="font-mono text-[10px] text-[#A39E98]">{mrn}</span>
                             </td>
 
-                            <td className="py-3 px-3 font-mono font-bold text-[#7A1F2B]">
+                            <td className="py-3 px-3 font-mono font-bold text-[#7A1F2B] whitespace-nowrap">
                               <Link to={`/dashboard/scan/${scanId}`} className="hover:underline">
                                 {scanId}
                               </Link>
                             </td>
 
-                            <td className="py-3 px-3">
-                              <StatusBadge status={prediction} size="xs" />
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <StatusBadge status={prediction} size="xs" short={true} />
                             </td>
 
                             <td className="py-3 px-3">

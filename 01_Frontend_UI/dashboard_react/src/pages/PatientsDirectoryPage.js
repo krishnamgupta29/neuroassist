@@ -166,13 +166,13 @@ export default function PatientsDirectoryPage() {
             <table className="w-full text-xs text-left">
               <thead>
                 <tr className="border-b border-[#E8E2DA] text-[#7A756F] uppercase tracking-wider font-semibold text-[10px]">
-                  <th className="py-2.5 px-3">Patient Name / Record</th>
-                  <th className="py-2.5 px-3">Demographics</th>
-                  <th className="py-2.5 px-3">Cognitive Status</th>
-                  <th className="py-2.5 px-3">AI Risk Score</th>
-                  <th className="py-2.5 px-3">MMSE Score</th>
-                  <th className="py-2.5 px-3">Last Volumetric Scan</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Patient Name / Record</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Demographics</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Cognitive Status</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">AI Risk Score</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">MMSE Score</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Last Volumetric Scan</th>
+                  <th className="py-2.5 px-3 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F7F1EC]">
@@ -205,51 +205,63 @@ export default function PatientsDirectoryPage() {
                   const pAge = patient.age || (patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : '—');
                   const pGender = patient.gender || '—';
                   const pScansCount = Math.max(patientScans.length, patient.scansCount ?? patient.scan_count ?? 0);
-                  const pLastScan = latestScan?.uploadDate || latestScan?.date || patient.lastScanDate || (patient.created_at ? new Date(patient.created_at).toISOString().split('T')[0] : 'Recent');
+                  const rawDateVal = latestScan?.uploadDate || latestScan?.date || patient.lastScanDate || patient.created_at || 'Recent';
+                  const formattedScanDate = (() => {
+                    if (!rawDateVal || rawDateVal === 'Recent') return 'Recent';
+                    try {
+                      if (typeof rawDateVal === 'string' && rawDateVal.includes('T')) {
+                        return rawDateVal.split('T')[0];
+                      }
+                      const d = new Date(rawDateVal);
+                      return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(rawDateVal);
+                    } catch {
+                      return String(rawDateVal);
+                    }
+                  })();
 
                   return (
                     <tr key={pId} className="hover:bg-[#FAF6F3] transition-colors group">
-                      <td className="py-3.5 px-3">
+                      <td className="py-3.5 px-3 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-[#F0E8E1] border border-[#D8C9BC] flex items-center justify-center font-serif font-bold text-[#7A1F2B] text-xs">
+                          <div className="w-9 h-9 rounded-xl bg-[#F0E8E1] border border-[#D8C9BC] flex items-center justify-center font-serif font-bold text-[#7A1F2B] text-xs flex-shrink-0">
                             {pInitials}
                           </div>
                           <div className="flex flex-col">
                             <Link
                               to={`/dashboard/patients/${pId}`}
-                              className="font-bold text-[#22201F] text-sm hover:text-[#7A1F2B] transition-colors"
+                              className="font-bold text-[#22201F] text-sm hover:text-[#7A1F2B] transition-colors whitespace-nowrap"
                             >
                               {pName}
                             </Link>
-                            <span className="text-[10px] text-[#A39E98] font-mono">
+                            <span className="text-[10px] text-[#A39E98] font-mono whitespace-nowrap">
                               {pCode}
                             </span>
                           </div>
                         </div>
                       </td>
-                      <td className="py-3.5 px-3 text-[#7A756F]">
+                      <td className="py-3.5 px-3 text-[#7A756F] whitespace-nowrap">
                         <span>{pAge} Yrs · {pGender}</span>
                       </td>
-                      <td className="py-3.5 px-3">
-                        <StatusBadge status={pCond} size="sm" />
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <StatusBadge status={pCond} size="sm" short={true} />
                       </td>
-                      <td className="py-3.5 px-3 font-serif font-bold text-sm">
+                      <td className="py-3.5 px-3 font-serif font-bold text-sm whitespace-nowrap">
                         <span className={pRisk >= 70 ? 'text-[#7A1F2B]' : pRisk >= 40 ? 'text-[#B87326]' : 'text-[#4A7C59]'}>
                           {pRisk}
                         </span>
                         <span className="text-[10px] text-[#A39E98] font-sans font-normal"> / 100</span>
                       </td>
-                      <td className="py-3.5 px-3">
+                      <td className="py-3.5 px-3 whitespace-nowrap">
                         <span className="font-mono font-bold text-[#22201F]">{pMmse}</span>
                         {pMmse !== '—' && <span className="text-[10px] text-[#A39E98]"> / 30</span>}
                       </td>
-                      <td className="py-3.5 px-3 text-[#7A756F]">
+                      <td className="py-3.5 px-3 text-[#7A756F] whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <FiCalendar className="w-3.5 h-3.5 text-[#A39E98]" />
-                          <span>{pLastScan} ({pScansCount} scans)</span>
+                          <FiCalendar className="w-3.5 h-3.5 text-[#A39E98] flex-shrink-0" />
+                          <span>{formattedScanDate} ({pScansCount} {pScansCount === 1 ? 'scan' : 'scans'})</span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-3 text-right">
+                      <td className="py-3.5 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <Link
                             to={`/dashboard/patients/${pId}`}
