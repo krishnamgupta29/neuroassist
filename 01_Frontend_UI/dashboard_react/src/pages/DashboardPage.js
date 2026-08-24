@@ -96,14 +96,15 @@ export default function DashboardPage() {
       });
 
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
-      const seeded = generateScanData(scanId);
+      const patientCond = p.condition || p.diagnosis || null;
+      const seeded = generateScanData(scanId, '', patientCond);
 
       const storedDec = storedDecisions[pId] || (matchingScan && storedDecisions[matchingScan.scanId || matchingScan.scan_id_string || matchingScan.id]) || storedDecisions[scanId];
 
-      const rawFinding = storedDec?.prediction || matchingScan?.prediction || matchingScan?.condition || (p.condition && p.condition !== 'CN' ? p.condition : seeded.prediction);
+      const rawFinding = storedDec?.prediction || matchingScan?.prediction || matchingScan?.condition || seeded.prediction || 'CN';
       const normalizedCond = getConditionCode(rawFinding);
 
-      const riskScore = storedDec?.riskScore ?? matchingScan?.riskScore ?? matchingScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : seeded.riskScore);
+      const riskScore = storedDec?.riskScore ?? matchingScan?.riskScore ?? matchingScan?.risk_score ?? seeded.riskScore;
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
       const status = storedDec?.status || matchingScan?.doctorStatus || matchingScan?.status || p.doctorStatus || p.status || 'pending';
       const isSignedOff = Boolean(

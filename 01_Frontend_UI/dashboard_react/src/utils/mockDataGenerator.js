@@ -133,13 +133,13 @@ export function generateScanData(scanId, fileName = '', targetCondition = null) 
 
   const probabilities = { CN: normCN, MCI: normMCI, AD: normAD };
 
-  // Risk score correlated with prediction
+  // Risk score strictly correlated with prediction class
   const riskScore =
     prediction === 'AD'
-      ? randInt(rng, 72, 96)
+      ? randInt(rng, 75, 94)
       : prediction === 'MCI'
-      ? randInt(rng, 38, 71)
-      : randInt(rng, 8, 37);
+      ? randInt(rng, 44, 66)
+      : randInt(rng, 8, 24);
 
   // Biomarkers with severity
   const hippoVol = parseFloat(randFloat(rng, 1.8, 4.2).toFixed(2));
