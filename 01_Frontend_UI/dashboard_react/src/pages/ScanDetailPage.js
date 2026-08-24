@@ -221,11 +221,14 @@ export default function ScanDetailPage() {
 
     const signOffPayload = {
       scanId: currentScanId,
+      patientId: targetPatient?.id || targetPatient?._id || scan.patientId,
       status: statusToSave,
       notes: decisionNotes,
       signedOffAt: timeStr,
       signedOffBy: doctorName,
       isSignedOff: true,
+      prediction: scan.prediction,
+      riskScore: scan.riskScore,
     };
 
     setSelectedStatus(statusToSave);

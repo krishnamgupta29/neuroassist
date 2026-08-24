@@ -97,17 +97,19 @@ export default function DashboardPage() {
       const riskScore = matchingScan?.riskScore ?? matchingScan?.risk_score ?? p.riskScore ?? p.risk_score ?? defaultRisk;
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
-      const status = matchingScan?.doctorStatus || matchingScan?.status || p.status || 'pending';
+      const status = matchingScan?.doctorStatus || matchingScan?.status || p.doctorStatus || p.status || 'pending';
       const isSignedOff = Boolean(
+        p.isSignedOff ||
         matchingScan?.isSignedOff ||
         matchingScan?.reviewed_at ||
         matchingScan?.reviewedAt ||
         matchingScan?.doctor_diagnosis ||
         matchingScan?.doctorDiagnosis ||
         ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(status) ||
-        ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(matchingScan?.doctorStatus)
+        ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(matchingScan?.doctorStatus) ||
+        ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(p.doctorStatus)
       );
-      const isFlagged = status === 'flagged' || matchingScan?.doctorStatus === 'flagged' || p.urgentFlag;
+      const isFlagged = status === 'flagged' || matchingScan?.doctorStatus === 'flagged' || p.doctorStatus === 'flagged' || p.urgentFlag;
 
       return {
         patientId: pId,

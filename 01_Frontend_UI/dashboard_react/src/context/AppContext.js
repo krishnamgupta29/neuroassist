@@ -249,13 +249,18 @@ function appReducer(state, action) {
     }
 
     case 'UPDATE_SCAN_DECISION': {
-      const { scanId, status, notes, signedOffAt, signedOffBy } = action.payload;
-      const updatedScans = (state.scans || []).map((s) => {
+      const { scanId, patientId, status, notes, signedOffAt, signedOffBy, prediction, riskScore } = action.payload;
+      const currentScans = Array.isArray(state.scans) ? state.scans : [];
+      let found = false;
+
+      const updatedScans = currentScans.map((s) => {
         const sId = s.scanId || s.scan_id_string || s.id;
-        if (sId === scanId) {
+        if (sId === scanId || (patientId && (s.patientId === patientId || s.patient_id === patientId))) {
+          found = true;
           return {
             ...s,
             doctorStatus: status,
+            status: status,
             doctorNotes: notes,
             isSignedOff: true,
             signedOffAt: signedOffAt,
@@ -265,14 +270,53 @@ function appReducer(state, action) {
         return s;
       });
 
+      if (!found) {
+        updatedScans.unshift({
+          scanId,
+          scan_id_string: scanId,
+          patientId,
+          status,
+          doctorStatus: status,
+          doctorNotes: notes,
+          isSignedOff: true,
+          signedOffAt,
+          signedOffBy,
+          prediction: prediction || 'CN',
+          riskScore: riskScore || 18,
+          date: new Date().toISOString().split('T')[0],
+          uploadDate: new Date().toISOString().split('T')[0],
+        });
+      }
+
+      const updatedPatients = (state.patients || []).map((pat) => {
+        const pId = pat.id || pat._id;
+        if (pId === patientId || (pat.lastScanId && pat.lastScanId === scanId)) {
+          return {
+            ...pat,
+            isSignedOff: true,
+            status,
+            doctorStatus: status,
+            doctorNotes: notes,
+            reviewed_at: signedOffAt,
+            reviewed_by: signedOffBy,
+          };
+        }
+        return pat;
+      });
+
       const uKey = getUserStorageKey(state.auth?.user);
       if (uKey !== 'guest') {
         try {
           localStorage.setItem(`na_scans_${uKey}`, JSON.stringify(updatedScans));
+          localStorage.setItem(`na_patients_${uKey}`, JSON.stringify(updatedPatients));
         } catch (e) {}
       }
 
-      return { ...state, scans: updatedScans };
+      return {
+        ...state,
+        scans: updatedScans,
+        patients: updatedPatients,
+      };
     }
 
     case 'UPDATE_SETTINGS':
