@@ -279,6 +279,46 @@ function appReducer(state, action) {
       };
     }
 
+    case 'UPDATE_SCAN_RESULT': {
+      const updated = action.payload;
+      const targetScanId = updated.scanId || updated.scan_id_string || updated.id || updated.scan_id;
+      if (!targetScanId) return state;
+      const currentScans = Array.isArray(state.scans) ? state.scans : [];
+      let found = false;
+      const newScans = currentScans.map((s) => {
+        const sId = s.scanId || s.scan_id_string || s.id;
+        if (sId === targetScanId) {
+          found = true;
+          return {
+            ...s,
+            ...updated,
+            scanId: targetScanId,
+            scan_id_string: targetScanId,
+            prediction: updated.prediction || s.prediction,
+            riskScore: updated.riskScore ?? updated.risk_score ?? s.riskScore,
+          };
+        }
+        return s;
+      });
+      if (!found) {
+        newScans.unshift({
+          scanId: targetScanId,
+          scan_id_string: targetScanId,
+          ...updated,
+        });
+      }
+      const uKey = getUserStorageKey(state.auth?.user);
+      if (uKey !== 'guest') {
+        try {
+          localStorage.setItem(`na_scans_${uKey}`, JSON.stringify(newScans));
+        } catch (e) {}
+      }
+      return {
+        ...state,
+        scans: newScans,
+      };
+    }
+
     case 'ADD_SCAN': {
       const newScan = action.payload;
       const scanId = newScan.scanId || newScan.scan_id_string || newScan.id;

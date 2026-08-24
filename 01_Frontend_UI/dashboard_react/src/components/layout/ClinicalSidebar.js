@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useApp } from '../../context/AppContext';
+import { useApp, getStoredDecisions } from '../../context/AppContext';
 import { 
   FiGrid, 
   FiUploadCloud, 
@@ -16,6 +16,7 @@ export default function ClinicalSidebar() {
   const navigate = useNavigate();
   const user = state.auth?.user;
   const isPatient = user?.role === 'patient';
+  const userDecisions = useMemo(() => getStoredDecisions(user), [user]);
 
   const rawPatients = state.patients;
   const patients = Array.isArray(rawPatients) ? rawPatients : (rawPatients?.patients || rawPatients?.items || []);
@@ -35,24 +36,27 @@ export default function ClinicalSidebar() {
   for (const s of rawScans) {
     const scanId = s.scanId || s.scan_id_string || s.id;
     const pId = s.patientId || s.patient_id;
-    const pName = (s.patientName || s.patient || '').trim().toLowerCase();
+    const pName = (s.patientName || s.patient || s.patient_name || '').trim().toLowerCase();
     const resolvedPatient = (pId && patientById[pId]) || (pName && patientByName[pName]);
 
-    if (!resolvedPatient && !pName) continue;
+    if (!resolvedPatient && !pName && !scanId) continue;
 
-    const patientKey = (resolvedPatient?.id || resolvedPatient?._id || pId || pName || 'unknown').toLowerCase();
+    const patientKey = (resolvedPatient?.id || resolvedPatient?._id || pId || pName || scanId || 'unknown').toLowerCase();
 
     // Ensure only 1 entry per unique patient in the sidebar quick access
     if (scanId && !seenScanIds.has(scanId) && !seenPatients.has(patientKey)) {
       seenScanIds.add(scanId);
       seenPatients.add(patientKey);
 
-      const rawPred = (s.prediction || s.condition || s.aiFinding || resolvedPatient?.condition || resolvedPatient?.diagnosis || 'CN').toUpperCase();
+      const storedDec = userDecisions[scanId] || (resolvedPatient?.id ? userDecisions[resolvedPatient.id] : null) || (resolvedPatient?._id ? userDecisions[resolvedPatient._id] : null);
+
+      const rawPred = (storedDec?.prediction || s.prediction || s.condition || s.aiFinding || resolvedPatient?.condition || resolvedPatient?.diagnosis || 'CN').toUpperCase();
       const pred = rawPred.includes('AD') ? 'AD' : rawPred.includes('MCI') ? 'MCI' : 'CN';
       uniqueScans.push({
         ...s,
+        scanId: scanId,
         prediction: pred,
-        _resolvedName: resolvedPatient?.full_name || resolvedPatient?.name || s.patientName || s.patient || 'Patient'
+        _resolvedName: resolvedPatient?.full_name || resolvedPatient?.name || s.patientName || s.patient || s.patient_name || 'Patient'
       });
     }
   }

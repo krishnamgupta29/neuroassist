@@ -47,10 +47,25 @@ export default function ScanDetailPage() {
     if (!scanId) return undefined;
     scanAPI
       .result(scanId)
-      .then(res => { if (!cancelled) setDetail(res.data); })
+      .then(res => {
+        if (!cancelled && res.data) {
+          setDetail(res.data);
+          dispatch({
+            type: 'UPDATE_SCAN_RESULT',
+            payload: {
+              scanId: res.data.scan_id || scanId,
+              scan_id_string: res.data.scan_id || scanId,
+              prediction: res.data.prediction,
+              riskScore: res.data.risk_score,
+              patientId: res.data.patient_id,
+              patientName: res.data.patient_name,
+            }
+          });
+        }
+      })
       .catch(() => { if (!cancelled) setDetail(null); });
     return () => { cancelled = true; };
-  }, [scanId]);
+  }, [scanId, dispatch]);
 
   const rawScan = useMemo(() => {
     if (!detail) return listScan;
