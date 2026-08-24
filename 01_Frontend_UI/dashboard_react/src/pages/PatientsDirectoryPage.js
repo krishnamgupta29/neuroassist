@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { patientAPI } from '../services/api';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatusBadge from '../components/common/StatusBadge';
 import AddPatientModal from '../components/clinical/AddPatientModal';
@@ -9,11 +10,14 @@ import {
   FiArrowRight, 
   FiCalendar, 
   FiUserPlus,
-  FiUploadCloud
+  FiUploadCloud,
+  FiTrash2,
+  FiAlertTriangle,
+  FiX
 } from 'react-icons/fi';
 
 export default function PatientsDirectoryPage() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const initialQuery = queryParams.get('q') || '';
@@ -21,6 +25,9 @@ export default function PatientsDirectoryPage() {
   const [search, setSearch] = useState(initialQuery);
   const [filterCondition, setFilterCondition] = useState('ALL'); // 'ALL' | 'CN' | 'MCI' | 'AD' | 'FLAGGED'
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
+  const [deletePatientTarget, setDeletePatientTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const filteredPatients = useMemo(() => {
     const rawPatients = state.patients;
@@ -64,6 +71,26 @@ export default function PatientsDirectoryPage() {
       return realCondition === filterCondition;
     });
   }, [state.patients, state.scans, search, filterCondition]);
+
+  const handleDeletePatient = async () => {
+    if (!deletePatientTarget) return;
+    const targetId = deletePatientTarget.id || deletePatientTarget._id;
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      await patientAPI.delete(targetId);
+    } catch (e) {
+      setIsDeleting(false);
+      setDeleteError(
+        e?.response?.data?.detail || 'Could not delete this patient. Nothing was removed.'
+      );
+      return;
+    }
+
+    dispatch({ type: 'DELETE_PATIENT', payload: targetId });
+    setIsDeleting(false);
+    setDeletePatientTarget(null);
+  };
 
   return (
     <DashboardLayout
@@ -233,7 +260,7 @@ export default function PatientsDirectoryPage() {
                         </div>
                       </td>
                       <td className="py-3 px-2.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1">
                           <Link
                             to={`/dashboard/patients/${pId}`}
                             className="btn-outline text-[11px] py-1 px-2.5 inline-flex items-center gap-1 group-hover:border-[#7A1F2B]"
@@ -241,6 +268,14 @@ export default function PatientsDirectoryPage() {
                             <span>Profile</span>
                             <FiArrowRight className="w-3 h-3" />
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() => setDeletePatientTarget(patient)}
+                            title="Delete Patient Record"
+                            className="p-1 rounded-lg text-[#A39E98] hover:text-[#7A1F2B] hover:bg-[#F8EAED] transition-colors"
+                          >
+                            <FiTrash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -265,7 +300,75 @@ export default function PatientsDirectoryPage() {
         isOpen={isAddPatientOpen}
         onClose={() => setIsAddPatientOpen(false)}
       />
+
+      {/* Delete Patient Confirmation Modal */}
+      {deletePatientTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fadeIn">
+          <div className="clinical-card max-w-md w-full p-6 bg-white space-y-4 shadow-2xl animate-scaleUp">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#F8EAED] text-[#7A1F2B] flex items-center justify-center">
+                  <FiAlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-serif font-bold text-[#22201F]">
+                    Delete Patient Record
+                  </h3>
+                  <p className="text-xs text-[#7A756F]">
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeletePatientTarget(null); setDeleteError(''); }}
+                className="p-1 text-[#A39E98] hover:text-[#22201F]"
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#FAF6F3] border border-[#E8E2DA] text-xs space-y-1">
+              <div className="font-bold text-[#22201F]">
+                {deletePatientTarget.full_name || deletePatientTarget.name}
+              </div>
+              <div className="text-[#7A756F] font-mono text-[11px]">
+                MRN: {deletePatientTarget.patient_code || deletePatientTarget.mrn || deletePatientTarget.id}
+              </div>
+              <p className="text-[11px] text-[#7A1F2B] pt-1">
+                All associated longitudinal trajectories, MMSE records, and volumetric scan linkages for this patient will be permanently removed.
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 rounded-xl bg-[#F8EAED] border border-[#ECC8CF] text-xs font-semibold text-[#7A1F2B]">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setDeletePatientTarget(null); setDeleteError(''); }}
+                className="px-4 py-2 text-xs font-semibold text-[#7A756F] hover:text-[#22201F] rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeletePatient}
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#7A1F2B] hover:bg-[#661823] rounded-xl transition-all shadow-clinical"
+              >
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </DashboardLayout>
   );
 }
+
 
