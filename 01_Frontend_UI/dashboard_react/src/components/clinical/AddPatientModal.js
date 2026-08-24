@@ -26,7 +26,6 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
     fullName: '',
     age: '',
     gender: 'Female',
-    condition: 'CN',
     clinicalNotes: '',
   });
 
@@ -75,7 +74,12 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
     const dobYear = new Date().getFullYear() - ageNum;
     const dob = `${dobYear}-06-15`;
 
-    const chosenCond = formData.condition || 'CN';
+    const notesLower = formData.clinicalNotes.toLowerCase();
+    const derivedCond = notesLower.includes('alzheimer') || notesLower.includes('ad ') || notesLower.includes('severe')
+      ? 'AD'
+      : notesLower.includes('mci') || notesLower.includes('mild') || notesLower.includes('deficit')
+      ? 'MCI'
+      : 'CN';
 
     const conditionStages = {
       CN: 'Cognitively Normal',
@@ -83,8 +87,8 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
       AD: "Alzheimer's Disease",
     };
 
-    const initialRisk = chosenCond === 'AD' ? 82 : chosenCond === 'MCI' ? 52 : 18;
-    const initialMmse = chosenCond === 'AD' ? 17 : chosenCond === 'MCI' ? 24 : 29;
+    const initialRisk = derivedCond === 'AD' ? 82 : derivedCond === 'MCI' ? 52 : 18;
+    const initialMmse = derivedCond === 'AD' ? 17 : derivedCond === 'MCI' ? 24 : 29;
 
     const newPatientObj = {
       id: newPatientId,
@@ -96,9 +100,9 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
       date_of_birth: dob,
       age: ageNum,
       gender: formData.gender,
-      condition: chosenCond,
-      stage: conditionStages[chosenCond],
-      diagnosis: chosenCond,
+      condition: derivedCond,
+      stage: conditionStages[derivedCond],
+      diagnosis: derivedCond,
       assignedDoctor: defaultDoctor,
       doctorNotes: formData.clinicalNotes.trim(),
       riskScore: initialRisk,
@@ -111,7 +115,7 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
           date: new Date().toISOString().slice(0, 7),
           riskScore: initialRisk,
           mmse: initialMmse,
-          label: chosenCond,
+          label: derivedCond,
         },
       ],
     };
@@ -230,23 +234,6 @@ export default function AddPatientModal({ isOpen, onClose, onSuccess, redirectTo
                 <option value="Other">Other / Non-binary</option>
               </select>
             </div>
-          </div>
-
-          {/* Baseline Cognitive Status / Diagnosis */}
-          <div className="space-y-1.5">
-            <label className="block font-semibold uppercase tracking-wider text-[#7A756F]">
-              Baseline Cognitive Classification *
-            </label>
-            <select
-              name="condition"
-              value={formData.condition}
-              onChange={handleChange}
-              className="clinical-input w-full cursor-pointer font-medium"
-            >
-              <option value="CN">Cognitively Normal (CN) — Low Risk</option>
-              <option value="MCI">Mild Cognitive Impairment (MCI) — Moderate Risk</option>
-              <option value="AD">Alzheimer's Disease (AD) — High Risk</option>
-            </select>
           </div>
 
 
