@@ -92,27 +92,28 @@ export default function DashboardPage() {
         return false;
       });
 
-      const condition = matchingScan?.prediction || p.condition || p.diagnosis || (idx % 3 === 0 ? 'CN' : idx % 3 === 1 ? 'MCI' : 'AD');
-      const normalizedCond = getConditionCode(condition);
+      const normalizedCond = getConditionCode(matchingScan?.prediction || matchingScan?.condition || p.condition || p.diagnosis);
       const defaultRisk = normalizedCond === 'AD' ? 82 : normalizedCond === 'MCI' ? 52 : 18;
       const riskScore = matchingScan?.riskScore ?? matchingScan?.risk_score ?? p.riskScore ?? p.risk_score ?? defaultRisk;
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
       const status = matchingScan?.doctorStatus || matchingScan?.status || p.status || 'pending';
-      const isSignedOff = matchingScan?.isSignedOff || status === 'signed_off' || status === 'accepted' || status === 'approved';
+      const isSignedOff = matchingScan?.isSignedOff || status === 'signed_off' || status === 'accepted' || status === 'approved' || status === 'flagged';
+      const isFlagged = status === 'flagged' || p.urgentFlag;
 
       return {
         patientId: pId,
         patientName: pName,
         mrn: pMrn,
-        age: p.age || 65,
-        gender: p.gender || 'Unknown',
+        age: p.age || (p.date_of_birth ? new Date().getFullYear() - new Date(p.date_of_birth).getFullYear() : (p.age || 65)),
+        gender: p.gender || '—',
         scanId,
         prediction: normalizedCond,
         riskScore,
         uploadDate,
         status,
         isSignedOff,
+        isFlagged,
         isRawScan: Boolean(matchingScan),
       };
     });
@@ -369,10 +370,17 @@ export default function DashboardPage() {
 
                             <td className="py-3 px-3">
                               {isSignedOff ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EDF5F0] text-[#4A7C59] border border-[#CFE3D5] text-[10px] font-bold">
-                                  <FiCheckCircle className="w-3 h-3" />
-                                  <span>Reviewed</span>
-                                </span>
+                                item.isFlagged ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F8EAED] text-[#7A1F2B] border border-[#ECC8CF] text-[10px] font-bold">
+                                    <FiAlertTriangle className="w-3 h-3" />
+                                    <span>Flagged</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EDF5F0] text-[#4A7C59] border border-[#CFE3D5] text-[10px] font-bold">
+                                    <FiCheckCircle className="w-3 h-3" />
+                                    <span>Reviewed</span>
+                                  </span>
+                                )
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FAF3E8] text-[#8A5A14] border border-[#F0DEC2] text-[10px] font-bold">
                                   <FiClock className="w-3 h-3" />

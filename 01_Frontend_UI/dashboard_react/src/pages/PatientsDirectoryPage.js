@@ -37,17 +37,10 @@ export default function PatientsDirectoryPage() {
     });
     const allScans = Array.isArray(state.scans) ? state.scans : [];
 
-    return patientsList.filter((p, idx) => {
+    return patientsList.map((p) => {
       const pId = p.id || p._id;
-      const name = p.name || p.full_name || '';
-      const mrn = p.mrn || p.patient_code || '';
-      const id = p.id || p._id || '';
-      const matchSearch =
-        name.toLowerCase().includes(search.toLowerCase()) ||
-        mrn.toLowerCase().includes(search.toLowerCase()) ||
-        id.toLowerCase().includes(search.toLowerCase());
-
-      if (!matchSearch) return false;
+      const name = p.name || p.full_name || 'Patient Record';
+      const mrn = p.mrn || p.patient_code || pId;
 
       // Match patient scans by unique patient ID, MRN, or Patient Name
       const patientScans = allScans.filter((s) => {
@@ -61,14 +54,42 @@ export default function PatientsDirectoryPage() {
         return false;
       });
       const latestScan = patientScans.length > 0 ? patientScans[0] : null;
-      const rawCondition = latestScan?.prediction || p.condition || p.diagnosis || '';
-      const realCondition = rawCondition.includes('AD') ? 'AD' : rawCondition.includes('MCI') ? 'MCI' : rawCondition.includes('CN') ? 'CN' : (idx % 3 === 0 ? 'CN' : idx % 3 === 1 ? 'MCI' : 'AD');
-      const realRisk = latestScan?.riskScore ?? (p.riskScore ?? p.risk_score ?? (realCondition === 'AD' ? 82 : realCondition === 'MCI' ? 52 : 18));
+      const rawCondition = (latestScan?.prediction || latestScan?.condition || p.condition || p.diagnosis || '').toUpperCase();
+      const realCondition = rawCondition.includes('AD') ? 'AD' : rawCondition.includes('MCI') ? 'MCI' : 'CN';
+      const defaultRisk = realCondition === 'AD' ? 82 : realCondition === 'MCI' ? 52 : 18;
+      const realRisk = latestScan?.riskScore ?? latestScan?.risk_score ?? p.riskScore ?? p.risk_score ?? defaultRisk;
       const isUrgent = p.urgentFlag || realCondition === 'AD' || realRisk >= 75;
 
+      const pAge = p.age || (p.date_of_birth ? new Date().getFullYear() - new Date(p.date_of_birth).getFullYear() : (p.age || 65));
+      const pGender = p.gender || '—';
+      const pMmse = p.mmseScore ?? p.mmse ?? (realCondition === 'AD' ? 17 : realCondition === 'MCI' ? 24 : 29);
+
+      return {
+        ...p,
+        _id: pId,
+        id: pId,
+        full_name: name,
+        patient_code: mrn,
+        condition: realCondition,
+        riskScore: realRisk,
+        mmseScore: pMmse,
+        age: pAge,
+        gender: pGender,
+        isUrgent,
+        patientScans,
+        latestScan,
+      };
+    }).filter((p) => {
+      const matchSearch =
+        p.full_name.toLowerCase().includes(search.toLowerCase()) ||
+        p.patient_code.toLowerCase().includes(search.toLowerCase()) ||
+        String(p.id).toLowerCase().includes(search.toLowerCase());
+
+      if (!matchSearch) return false;
+
       if (filterCondition === 'ALL') return true;
-      if (filterCondition === 'FLAGGED') return isUrgent;
-      return realCondition === filterCondition;
+      if (filterCondition === 'FLAGGED') return p.isUrgent;
+      return p.condition === filterCondition;
     });
   }, [state.patients, state.scans, search, filterCondition]);
 
@@ -174,34 +195,19 @@ export default function PatientsDirectoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F7F1EC]">
-                {filteredPatients.map((patient, idx) => {
+                {filteredPatients.map((patient) => {
                   const pId = patient.id || patient._id;
                   const pName = patient.full_name || patient.name || 'Patient Record';
                   const pCode = patient.patient_code || patient.mrn || pId;
                   const pInitials = pName.split(' ').map((n) => n[0]).join('').slice(0, 2) || 'PT';
 
-                  // Match scans belonging to this patient
-                  const allScans = Array.isArray(state.scans) ? state.scans : [];
-                  const patientScans = allScans.filter((s) => {
-                    const sPId = s.patientId || s.patient_id;
-                    const sMrn = s.patient_code || s.mrn;
-                    const sPName = (s.patientName || s.patient || '').trim().toLowerCase();
-                    const targetName = pName.trim().toLowerCase();
-                    if (sPId && sPId === pId) return true;
-                    if (sMrn && (sMrn === pCode || sMrn === patient.mrn)) return true;
-                    if (sPName && targetName && sPName === targetName) return true;
-                    return false;
-                  });
-
-                  const latestScan = patientScans.length > 0 ? patientScans[0] : null;
-
-                  // Real-time AI classification from latest uploaded scan or clinical diagnosis
-                  const rawCond = latestScan?.prediction || patient.condition || patient.diagnosis || '';
-                  const pCond = rawCond.includes('AD') ? 'AD' : rawCond.includes('MCI') ? 'MCI' : rawCond.includes('CN') ? 'CN' : (idx % 3 === 0 ? 'CN' : idx % 3 === 1 ? 'MCI' : 'AD');
-                  const pRisk = latestScan?.riskScore ?? (patient.riskScore ?? patient.risk_score ?? (pCond === 'AD' ? 82 : pCond === 'MCI' ? 52 : 18));
-                  const pMmse = patient.mmseScore ?? (pCond === 'AD' ? 17 : pCond === 'MCI' ? 24 : 29);
-                  const pAge = patient.age || (patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : '—');
-                  const pGender = patient.gender || '—';
+                  const patientScans = patient.patientScans || [];
+                  const latestScan = patient.latestScan;
+                  const pCond = patient.condition;
+                  const pRisk = patient.riskScore;
+                  const pMmse = patient.mmseScore;
+                  const pAge = patient.age;
+                  const pGender = patient.gender;
                   const pScansCount = Math.max(patientScans.length, patient.scansCount ?? patient.scan_count ?? 0);
                   const rawDateVal = latestScan?.uploadDate || latestScan?.date || patient.lastScanDate || patient.created_at || 'Recent';
                   const formattedScanDate = (() => {

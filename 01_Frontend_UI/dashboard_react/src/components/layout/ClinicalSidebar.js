@@ -38,7 +38,13 @@ export default function ClinicalSidebar() {
     if (id && !seenIds.has(id) && hasPatient) {
       seenIds.add(id);
       const resolvedPatient = (pId && patientById[pId]) || (pName && patientByName[pName]);
-      uniqueScans.push({ ...s, _resolvedName: resolvedPatient?.full_name || resolvedPatient?.name || s.patientName || s.patient || 'Patient' });
+      const rawPred = (s.prediction || s.condition || s.aiFinding || resolvedPatient?.condition || resolvedPatient?.diagnosis || 'CN').toUpperCase();
+      const pred = rawPred.includes('AD') ? 'AD' : rawPred.includes('MCI') ? 'MCI' : 'CN';
+      uniqueScans.push({
+        ...s,
+        prediction: pred,
+        _resolvedName: resolvedPatient?.full_name || resolvedPatient?.name || s.patientName || s.patient || 'Patient'
+      });
     }
   }
   const scans = uniqueScans;

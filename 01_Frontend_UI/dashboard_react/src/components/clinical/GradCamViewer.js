@@ -70,10 +70,10 @@ export default function GradCamViewer({
     const shiftY = (rng() - 0.5) * 0.05;
     const hippoRadiusMod = 0.85 + rng() * 0.30;
     const ventRadiusMod = 0.85 + rng() * 0.30;
-    const peakIntensity = cond === 'AD' ? 0.88 + rng() * 0.11 : cond === 'MCI' ? 0.60 + rng() * 0.18 : 0.15 + rng() * 0.12;
+    const peakIntensity = cond === 'AD' ? 0.88 + rng() * 0.11 : cond === 'MCI' ? 0.60 + rng() * 0.18 : 0.05 + rng() * 0.05;
 
-    // Distinct focal hot spot profile
-    const focalCenterZ = 0.48 + (rng() - 0.5) * 0.12;
+    // Distinct focal hot spot profile (Hippocampal level at slice 48-52%)
+    const focalCenterZ = 0.50 + (rng() - 0.5) * 0.06;
 
     return {
       leftWeight,
@@ -84,7 +84,7 @@ export default function GradCamViewer({
       ventRadiusMod,
       peakIntensity,
       focalCenterZ,
-      asymmetryLabel: asymmetry > 0.06 ? 'Left Hemisphere Dominant' : asymmetry < -0.06 ? 'Right Hemisphere Dominant' : 'Bilateral Symmetric',
+      asymmetryLabel: cond === 'CN' ? 'Normal Bilateral Symmetry' : (asymmetry > 0.06 ? 'Left Hemisphere Dominant' : asymmetry < -0.06 ? 'Right Hemisphere Dominant' : 'Bilateral Symmetric'),
     };
   }, [scanId, patientName, cond]);
 
@@ -461,7 +461,7 @@ export default function GradCamViewer({
       >
         
         {/* Top-Left Live Coordinate HUD */}
-        <div className="absolute top-3 left-3 z-30 bg-black/85 backdrop-blur-xs border border-white/20 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#4ADE80] font-bold pointer-events-none shadow-md space-y-0.5">
+        <div className="absolute top-3 left-3 z-10 bg-black/85 backdrop-blur-xs border border-white/20 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#4ADE80] font-bold pointer-events-none shadow-md space-y-0.5">
           <div>COORD: X:{hoverCoord ? hoverCoord.x : sliceIndex}% · Y:{hoverCoord ? hoverCoord.y : sliceIndex}% · Z:{sliceIndex}%</div>
           {isHovering && hoverCoord && (
             <div className="text-white/90 font-sans text-[10px] flex items-center gap-1">
@@ -472,7 +472,7 @@ export default function GradCamViewer({
         </div>
 
         {/* Top-Right Slice Position Badge & Colormap Mode */}
-        <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 pointer-events-none">
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 pointer-events-none">
           <div className="bg-black/85 backdrop-blur-xs border border-[#4ADE80]/60 px-2.5 py-1 rounded-lg text-[10px] font-mono text-[#4ADE80] font-bold shadow-md">
             SLICE {sliceIndex.toString().padStart(3, '0')} / 100
           </div>

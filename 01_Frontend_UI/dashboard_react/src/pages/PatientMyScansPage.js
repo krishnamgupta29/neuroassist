@@ -54,7 +54,7 @@ export default function PatientMyScansPage() {
       <div className="space-y-6">
 
         {/* Quick Patient Stat Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="clinical-card p-4 bg-white flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-[#F8EAED] text-[#7A1F2B] flex items-center justify-center">
               <FiLayers className="w-5 h-5" />
@@ -71,19 +71,9 @@ export default function PatientMyScansPage() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-[#7A756F]">Latest Examination</span>
-              <h4 className="text-xs font-bold text-[#22201F] truncate max-w-[160px]">
+              <h4 className="text-xs font-bold text-[#22201F] truncate max-w-[220px]">
                 {latestScan?.uploadDate || latestScan?.date || 'No Scans Yet'}
               </h4>
-            </div>
-          </div>
-
-          <div className="clinical-card p-4 bg-white flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[#EDF5F0] text-[#4A7C59] flex items-center justify-center">
-              <FiShield className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-[#7A756F]">Reviewing Physician</span>
-              <h4 className="text-xs font-bold text-[#22201F]">Dr. Sarah Lin, MD</h4>
             </div>
           </div>
         </div>
@@ -123,27 +113,40 @@ export default function PatientMyScansPage() {
               <table className="w-full text-xs text-left">
                 <thead>
                   <tr className="border-b border-[#E8E2DA] text-[#7A756F] uppercase font-bold text-[10px]">
-                    <th className="py-3 px-3">Scan Reference ID</th>
-                    <th className="py-3 px-3">Submission Date</th>
-                    <th className="py-3 px-3">File Format</th>
-                    <th className="py-3 px-3">AI Finding</th>
-                    <th className="py-3 px-3">Confidence</th>
-                    <th className="py-3 px-3">Review Status</th>
-                    <th className="py-3 px-3 text-right">Interactive Insights</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Scan Reference ID</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Submission Date</th>
+                    <th className="py-3 px-3 whitespace-nowrap">File Format</th>
+                    <th className="py-3 px-3 whitespace-nowrap">AI Finding</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Confidence</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Review Status</th>
+                    <th className="py-3 px-3 text-right whitespace-nowrap">Interactive Insights</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F7F1EC]">
                   {myScans.map((scan, idx) => {
                     const scanId = scan.scanId || scan.scan_id_string || scan.id || `SCN-${idx + 1000}`;
-                    const uploadDate = scan.uploadDate || scan.date || 'Recent';
+                    const rawDateVal = scan.uploadDate || scan.date || 'Recent';
+                    const uploadDate = (() => {
+                      if (!rawDateVal || rawDateVal === 'Recent') return 'Recent';
+                      try {
+                        if (typeof rawDateVal === 'string' && rawDateVal.includes('T')) {
+                          return rawDateVal.split('T')[0];
+                        }
+                        const d = new Date(rawDateVal);
+                        return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(rawDateVal);
+                      } catch {
+                        return String(rawDateVal);
+                      }
+                    })();
                     const fileName = scan.fileFormat || scan.fileName || 'T1_MPRAGE_MRI.nii.gz';
-                    const prediction = scan.prediction || 'CN';
+                    const rawPred = (scan.prediction || scan.condition || 'CN').toUpperCase();
+                    const prediction = rawPred.includes('AD') ? 'AD' : rawPred.includes('MCI') ? 'MCI' : 'CN';
                     const confidence = scan.confidence || 90;
                     const isReviewed = scan.isSignedOff || scan.doctorStatus === 'signed_off' || scan.doctorStatus === 'accepted' || scan.doctorStatus === 'approved';
 
                     return (
                       <tr key={scanId} className="hover:bg-[#FAF7F4] transition-colors group">
-                        <td className="py-3.5 px-3">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           <Link 
                             to={`/dashboard/scan/${scanId}`}
                             className="font-mono font-bold text-[#7A1F2B] hover:underline flex items-center gap-1.5"
@@ -152,29 +155,29 @@ export default function PatientMyScansPage() {
                           </Link>
                         </td>
 
-                        <td className="py-3.5 px-3 text-[#5A5550]">
+                        <td className="py-3.5 px-3 text-[#5A5550] whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <FiClock className="w-3.5 h-3.5 text-[#A39E98]" />
                             <span>{uploadDate}</span>
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-3 font-mono text-[#22201F]">
+                        <td className="py-3.5 px-3 font-mono text-[#22201F] whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <FiFileText className="w-3.5 h-3.5 text-[#7A756F]" />
-                            <span className="truncate max-w-[150px]" title={fileName}>{fileName}</span>
+                            <span className="truncate max-w-[180px]" title={fileName}>{fileName}</span>
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-3">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           <StatusBadge status={prediction} size="xs" />
                         </td>
 
-                        <td className="py-3.5 px-3 font-mono font-bold text-[#22201F]">
+                        <td className="py-3.5 px-3 font-mono font-bold text-[#22201F] whitespace-nowrap">
                           {confidence}%
                         </td>
 
-                        <td className="py-3.5 px-3">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           {isReviewed ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EDF5F0] text-[#4A7C59] border border-[#D5EAD9] font-bold text-[11px]">
                               <FiCheckCircle className="w-3.5 h-3.5" />
@@ -188,10 +191,10 @@ export default function PatientMyScansPage() {
                           )}
                         </td>
 
-                        <td className="py-3.5 px-3 text-right">
+                        <td className="py-3.5 px-3 text-right whitespace-nowrap">
                           <Link
                             to={`/dashboard/scan/${scanId}`}
-                            className="btn-maroon text-xs py-1.5 px-3 inline-flex items-center gap-1.5 shadow-clinical-xs cursor-pointer group-hover:bg-[#661823]"
+                            className="btn-maroon text-xs py-1.5 px-3 inline-flex items-center gap-1.5 shadow-clinical-xs cursor-pointer group-hover:bg-[#661823] whitespace-nowrap"
                           >
                             <FiActivity className="w-3.5 h-3.5" />
                             <span>View Grad-CAM</span>

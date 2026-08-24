@@ -43,11 +43,11 @@ export default function PatientProfilePage() {
     name: rawPatient?.full_name || rawPatient?.name || 'Patient Record',
     patient_code: rawPatient?.patient_code || rawPatient?.mrn || 'NA-2026-0001',
     mrn: rawPatient?.patient_code || rawPatient?.mrn || 'NA-2026-0001',
-    age: rawPatient?.age || 65,
-    gender: rawPatient?.gender || 'Unknown',
+    age: rawPatient?.age || (rawPatient?.date_of_birth ? new Date().getFullYear() - new Date(rawPatient.date_of_birth).getFullYear() : (rawPatient?.age || 65)),
+    gender: rawPatient?.gender || '—',
     condition: rawPatient?.condition || rawPatient?.diagnosis || seeded.condition,
     stage: rawPatient?.stage || seeded.stage,
-    assignedDoctor: rawPatient?.assignedDoctor || (state.auth?.user?.full_name ? `Dr. ${state.auth.user.full_name}` : 'Dr. Krishnam Gupta'),
+    assignedDoctor: rawPatient?.assignedDoctor || 'Assigned Clinical Team',
     doctorNotes: rawPatient?.doctorNotes || 'Initial baseline MRI acquired. Mild bilateral temporal lobe asymmetry noted.',
     riskScore: rawPatient?.riskScore ?? rawPatient?.risk_score ?? seeded.riskScore,
     mmseScore: rawPatient?.mmseScore ?? rawPatient?.mmse ?? seeded.mmseScore,
@@ -72,12 +72,12 @@ export default function PatientProfilePage() {
   });
 
   const latestScan = patientScans.length > 0 ? patientScans[0] : null;
-  if (latestScan?.prediction) {
-    patient.condition = latestScan.prediction;
-    patient.stage = latestScan.prediction === 'AD' ? "Alzheimer's Disease" : latestScan.prediction === 'MCI' ? 'Mild Cognitive Impairment' : 'Cognitively Normal';
-  }
-  if (latestScan?.riskScore !== undefined) {
-    patient.riskScore = latestScan.riskScore;
+  const rawCond = (latestScan?.prediction || latestScan?.condition || patient.condition || 'CN').toUpperCase();
+  const realCond = rawCond.includes('AD') ? 'AD' : rawCond.includes('MCI') ? 'MCI' : 'CN';
+  patient.condition = realCond;
+  patient.stage = realCond === 'AD' ? "Alzheimer's Disease" : realCond === 'MCI' ? 'Mild Cognitive Impairment' : 'Cognitively Normal';
+  if (latestScan?.riskScore !== undefined || latestScan?.risk_score !== undefined) {
+    patient.riskScore = latestScan.riskScore ?? latestScan.risk_score;
   }
 
   const [notes, setNotes] = useState(patient.doctorNotes || '');

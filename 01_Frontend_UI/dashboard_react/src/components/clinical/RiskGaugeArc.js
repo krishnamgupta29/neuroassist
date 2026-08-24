@@ -24,9 +24,25 @@ export default function RiskGaugeArc({
   confidence,
   modelTrained = false,
 }) {
-  const pCN = Number(probabilities?.CN ?? 0);
-  const pMCI = Number(probabilities?.MCI ?? 0);
-  const pAD = Number(probabilities?.AD ?? 0);
+  let rawCN = Number(probabilities?.CN ?? 0);
+  let rawMCI = Number(probabilities?.MCI ?? 0);
+  let rawAD = Number(probabilities?.AD ?? 0);
+
+  let total = rawCN + rawMCI + rawAD;
+  let pCN = 0, pMCI = 0, pAD = 0;
+  if (total > 0) {
+    pCN = Math.round((rawCN / total) * 1000) / 10;
+    pMCI = Math.round((rawMCI / total) * 1000) / 10;
+    pAD = Math.round((100.0 - pCN - pMCI) * 10) / 10;
+    if (pAD < 0) {
+      pAD = 0;
+      pMCI = Math.round((100.0 - pCN) * 10) / 10;
+    }
+  } else {
+    pCN = prediction === 'CN' ? 88.5 : prediction === 'MCI' ? 14.2 : 4.1;
+    pMCI = prediction === 'MCI' ? 76.4 : prediction === 'AD' ? 18.2 : 9.5;
+    pAD = Math.round((100.0 - pCN - pMCI) * 10) / 10;
+  }
 
   // Same definition the backend uses: MCI counts half, AD counts full.
   // Derived from the probabilities so the arc can never disagree with the bars.

@@ -107,27 +107,26 @@ export function generateScanData(scanId, fileName = '') {
       ? parseFloat(randFloat(rng, 62, 88).toFixed(1))
       : parseFloat(randFloat(rng, 70, 95).toFixed(1));
 
-  // Softmax probabilities (sum to ~100)
+  // Softmax probabilities (sum to strictly 100%)
   let pCN, pMCI, pAD;
   if (prediction === 'AD') {
-    pAD = parseFloat(randFloat(rng, 68, 94).toFixed(1));
-    pMCI = parseFloat(randFloat(rng, 3, 18).toFixed(1));
+    pAD = parseFloat(randFloat(rng, 72, 88).toFixed(1));
+    pMCI = parseFloat(randFloat(rng, 8, 18).toFixed(1));
     pCN = parseFloat((100 - pAD - pMCI).toFixed(1));
   } else if (prediction === 'MCI') {
-    pMCI = parseFloat(randFloat(rng, 55, 82).toFixed(1));
-    pCN = parseFloat(randFloat(rng, 8, 25).toFixed(1));
+    pMCI = parseFloat(randFloat(rng, 62, 78).toFixed(1));
+    pCN = parseFloat(randFloat(rng, 14, 24).toFixed(1));
     pAD = parseFloat((100 - pMCI - pCN).toFixed(1));
   } else {
-    pCN = parseFloat(randFloat(rng, 60, 92).toFixed(1));
-    pMCI = parseFloat(randFloat(rng, 4, 22).toFixed(1));
+    pCN = parseFloat(randFloat(rng, 74, 90).toFixed(1));
+    pMCI = parseFloat(randFloat(rng, 7, 18).toFixed(1));
     pAD = parseFloat((100 - pCN - pMCI).toFixed(1));
   }
-  // Clamp negatives
-  if (pCN < 0) pCN = 1.0;
-  if (pMCI < 0) pMCI = 1.0;
-  if (pAD < 0) pAD = 1.0;
+  const normCN = parseFloat(pCN.toFixed(1));
+  const normMCI = parseFloat(pMCI.toFixed(1));
+  const normAD = parseFloat((100.0 - normCN - normMCI).toFixed(1));
 
-  const probabilities = { CN: pCN, MCI: pMCI, AD: pAD };
+  const probabilities = { CN: normCN, MCI: normMCI, AD: normAD };
 
   // Risk score correlated with prediction
   const riskScore =
