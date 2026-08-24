@@ -60,8 +60,14 @@ export default function RiskGaugeArc({
   const strokeDashoffset = circumference - (normalizedScore / 100) * circumference;
 
   const getScoreCategory = (s) => {
-    if (s >= 71) return { label: 'High Neurological Risk (AD Profile)', color: '#7A1F2B', bg: '#F8EAED' };
-    if (s >= 36) return { label: 'Moderate Impairment (MCI Profile)', color: '#B87326', bg: '#FAF3E8' };
+    if (prediction) {
+      const p = String(prediction).toUpperCase();
+      if (p === 'AD' || p.includes('AD')) return { label: "High Neurological Risk (AD Profile)", color: '#7A1F2B', bg: '#F8EAED' };
+      if (p === 'MCI' || p.includes('MCI')) return { label: 'Moderate Impairment (MCI Profile)', color: '#B87326', bg: '#FAF3E8' };
+      if (p === 'CN' || p.includes('CN')) return { label: 'Low Risk (Cognitively Normal)', color: '#4A7C59', bg: '#EDF5F0' };
+    }
+    if (s >= 60) return { label: "High Neurological Risk (AD Profile)", color: '#7A1F2B', bg: '#F8EAED' };
+    if (s >= 35) return { label: 'Moderate Impairment (MCI Profile)', color: '#B87326', bg: '#FAF3E8' };
     return { label: 'Low Risk (Cognitively Normal)', color: '#4A7C59', bg: '#EDF5F0' };
   };
 
