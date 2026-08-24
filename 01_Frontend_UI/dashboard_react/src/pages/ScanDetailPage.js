@@ -54,7 +54,7 @@ export default function ScanDetailPage() {
 
   const rawScan = useMemo(() => {
     if (!detail) return listScan;
-    const pct = v => (typeof v === 'number' ? v * 100 : undefined);
+    const pct = v => (typeof v === 'number' ? (v <= 1.0 ? parseFloat((v * 100).toFixed(1)) : parseFloat(v.toFixed(1))) : undefined);
     return {
       ...listScan,
       patientId: detail.patient_id,

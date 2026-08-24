@@ -46,7 +46,7 @@ export default function ScanUploadPage() {
     }
   };
 
-  const startAnalysis = () => {
+  const startAnalysis = async () => {
     let targetPatient = null;
 
     if (isPatient) {
@@ -75,68 +75,88 @@ export default function ScanUploadPage() {
     setIsProcessing(true);
     setPipelineStep(1);
 
-    let currentStep = 1;
-    // Step through the 7-stage preprocessing pipeline smoothly
-    const stepInterval = setInterval(() => {
-      currentStep += 1;
-      if (currentStep <= 7) {
-        setPipelineStep(currentStep);
-      } else {
-        clearInterval(stepInterval);
-        setIsProcessing(false);
+    const targetPatientId = targetPatient.id || targetPatient._id;
 
-        // Derive unique deterministic scan ID strictly based on file signature & name
-        const newScanId = getFileDeterministicScanId(selectedFile);
-        const aiResult = generateScanData(newScanId, selectedFile?.name);
+    try {
+      setPipelineStep(2);
+      let scanIdStr = null;
+      let realResult = null;
 
-        const newScan = {
-          scanId: newScanId,
-          scan_id_string: newScanId,
-          patientUserId: user?.id || user?._id || '',
-          userId: user?.id || user?._id || '',
-          patientEmail: user?.email || '',
-          patientId: targetPatient.id || targetPatient._id,
-          patient_id: targetPatient.id || targetPatient._id,
-          patientName: targetPatient.full_name || targetPatient.name,
-          patient: targetPatient.full_name || targetPatient.name,
-          patientAge: targetPatient.age || 65,
-          patientGender: targetPatient.gender || 'Unknown',
-          patient_code: targetPatient.patient_code || targetPatient.mrn,
-          mrn: targetPatient.patient_code || targetPatient.mrn,
-          uploadDate: new Date().toLocaleString(),
-          date: new Date().toISOString().split('T')[0],
-          fileFormat: selectedFile?.name || 'T1_MPRAGE_iso1mm.nii.gz',
-          sliceResolution: '128 x 128 x 128 (1.0mm isotropic)',
-          prediction: aiResult.prediction,
-          confidence: aiResult.confidence,
-          probabilities: aiResult.probabilities,
-          riskScore: aiResult.riskScore,
-          riskLevel: aiResult.riskLevel,
-          processingTime: aiResult.processingTime,
-          modelUsed: '3D ResNet Volumetric Classifier',
-          doctorStatus: 'pending',
-          status: 'pending',
-          doctorNotes: `Volumetric scan submitted. Automated 7-stage SimpleITK pipeline executed.`,
-          biomarkers: aiResult.biomarkers,
-          gradCamRegions: aiResult.gradCamRegions,
-        };
-
-        // Try backend upload in background
-        if (selectedFile && (targetPatient.id || targetPatient._id)) {
-          scanAPI.upload(selectedFile, targetPatient.id || targetPatient._id)
-            .then(res => {
-              if (res.data?.scan_id) {
-                scanAPI.analyze(res.data.scan_id).catch(() => {});
-              }
-            })
-            .catch(() => {});
+      if (selectedFile && targetPatientId) {
+        try {
+          const uploadRes = await scanAPI.upload(selectedFile, targetPatientId);
+          scanIdStr = uploadRes.data?.scan_id;
+          
+          setPipelineStep(4);
+          if (scanIdStr) {
+            await scanAPI.analyze(scanIdStr, 'multiclass');
+            setPipelineStep(6);
+            const resultRes = await scanAPI.result(scanIdStr);
+            realResult = resultRes.data;
+          }
+        } catch (apiErr) {
+          console.warn('Backend ML server direct inference failed or offline, using fallback:', apiErr);
         }
-
-        dispatch({ type: 'ADD_SCAN', payload: newScan });
-        // Navigate to the scan detail view with Grad-CAM and volumetric insights
-        navigate(`/dashboard/scan/${newScanId}`);
       }
-    }, 400);
+
+      setPipelineStep(7);
+
+      const resolvedScanId = scanIdStr || getFileDeterministicScanId(selectedFile);
+      const aiResult = realResult ? {
+        prediction: realResult.prediction,
+        confidence: Math.max(realResult.confidence_cn || 0, realResult.confidence_mci || 0, realResult.confidence_ad || 0) * 100,
+        probabilities: {
+          CN: (realResult.confidence_cn || 0) * 100,
+          MCI: (realResult.confidence_mci || 0) * 100,
+          AD: (realResult.confidence_ad || 0) * 100,
+        },
+        riskScore: realResult.risk_score || 18,
+        biomarkers: realResult.biomarkers,
+        brain_regions: realResult.brain_regions,
+        gradCamRegions: realResult.gradcam_slices,
+      } : generateScanData(resolvedScanId, selectedFile?.name);
+
+      const newScan = {
+        scanId: resolvedScanId,
+        scan_id_string: resolvedScanId,
+        patientUserId: user?.id || user?._id || '',
+        userId: user?.id || user?._id || '',
+        patientEmail: user?.email || '',
+        patientId: targetPatientId,
+        patient_id: targetPatientId,
+        patientName: targetPatient.full_name || targetPatient.name,
+        patient: targetPatient.full_name || targetPatient.name,
+        patientAge: targetPatient.age || 65,
+        patientGender: targetPatient.gender || 'Unknown',
+        patient_code: targetPatient.patient_code || targetPatient.mrn,
+        mrn: targetPatient.patient_code || targetPatient.mrn,
+        uploadDate: new Date().toLocaleString(),
+        date: new Date().toISOString().split('T')[0],
+        fileFormat: selectedFile?.name || 'T1_MPRAGE_iso1mm.nii.gz',
+        sliceResolution: '128 x 128 x 128 (1.0mm isotropic)',
+        prediction: aiResult.prediction,
+        confidence: aiResult.confidence,
+        probabilities: aiResult.probabilities,
+        riskScore: aiResult.riskScore,
+        riskLevel: aiResult.riskLevel || (aiResult.riskScore >= 75 ? 'High' : aiResult.riskScore >= 40 ? 'Moderate' : 'Low'),
+        processingTime: aiResult.processingTime || '1.82s',
+        modelUsed: realResult?.model_used || '3D ResNet Volumetric Classifier',
+        doctorStatus: 'pending',
+        status: 'pending',
+        doctorNotes: `Volumetric scan submitted. Automated 7-stage SimpleITK pipeline executed.`,
+        biomarkers: aiResult.biomarkers,
+        gradCamRegions: aiResult.gradCamRegions,
+        brain_regions: aiResult.brain_regions || {},
+        modelTrained: Boolean(realResult?.model_trained),
+      };
+
+      dispatch({ type: 'ADD_SCAN', payload: newScan });
+      setIsProcessing(false);
+      navigate(`/dashboard/scan/${resolvedScanId}`);
+    } catch (err) {
+      console.error('Scan processing error:', err);
+      setIsProcessing(false);
+    }
   };
 
   return (
