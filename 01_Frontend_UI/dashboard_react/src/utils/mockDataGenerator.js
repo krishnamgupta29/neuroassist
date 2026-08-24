@@ -99,40 +99,9 @@ export function generateScanData(scanId, fileName = '', targetCondition = null) 
   if (targetCondition && ['CN', 'MCI', 'AD'].includes(targetCondition.toUpperCase())) {
     prediction = targetCondition.toUpperCase();
   } else {
-    // Check for condition keywords in filename or scanId
-    const searchStr = `${scanId} ${fileName}`.toLowerCase();
-    if (
-      searchStr.includes('_cn') ||
-      searchStr.includes('cn_') ||
-      searchStr.includes('-cn') ||
-      searchStr.includes('cn.') ||
-      searchStr.includes('normal') ||
-      searchStr.includes('control') ||
-      searchStr.includes('cognitively_normal')
-    ) {
-      prediction = 'CN';
-    } else if (
-      searchStr.includes('_ad') ||
-      searchStr.includes('ad_') ||
-      searchStr.includes('-ad') ||
-      searchStr.includes('ad.') ||
-      searchStr.includes('alzheimer') ||
-      searchStr.includes('dementia')
-    ) {
-      prediction = 'AD';
-    } else if (
-      searchStr.includes('_mci') ||
-      searchStr.includes('mci_') ||
-      searchStr.includes('-mci') ||
-      searchStr.includes('mci.') ||
-      searchStr.includes('impairment')
-    ) {
-      prediction = 'MCI';
-    } else {
-      // Deterministic weighted prediction class from file signature seed
-      const roll = rng();
-      prediction = roll < 0.35 ? 'CN' : roll < 0.70 ? 'MCI' : 'AD';
-    }
+    // Unbiased, balanced deterministic evaluation from unique file signature (1/3 equal distribution)
+    const roll = rng();
+    prediction = roll < 0.3333 ? 'CN' : roll < 0.6666 ? 'MCI' : 'AD';
   }
 
   // Confidence varies by class
