@@ -106,10 +106,16 @@ export default function ScanDetailPage() {
   }, [patientsList, rawScan, queryPatientId, queryMrn]);
 
   const resolvedScanId = targetScanId || (targetPatient ? getPatientDeterministicScanId(targetPatient) : 'SCN-700001');
-  const seeded = useMemo(() => generateScanData(resolvedScanId), [resolvedScanId]);
+  const currentScanId = scanId || resolvedScanId;
+
+  const userDecisions = useMemo(() => getStoredDecisions(currentUser), [currentUser]);
+  const localDecision = userDecisions[currentScanId] || (targetPatient?.id ? userDecisions[targetPatient.id] : null) || (targetPatient?._id ? userDecisions[targetPatient._id] : null);
+
+  const explicitPatientCond = localDecision?.prediction || rawScan?.prediction || targetPatient?.condition || targetPatient?.diagnosis || null;
+  const seeded = useMemo(() => generateScanData(resolvedScanId, '', explicitPatientCond), [resolvedScanId, explicitPatientCond]);
   const isMock = !rawScan;
 
-  const rawScanPred = rawScan?.prediction || seeded.prediction || 'CN';
+  const rawScanPred = explicitPatientCond || seeded.prediction || 'CN';
   const unifiedCond = rawScanPred.toUpperCase().includes('AD') ? 'AD' : rawScanPred.toUpperCase().includes('MCI') ? 'MCI' : 'CN';
 
   const patientAge = targetPatient?.age || (targetPatient?.date_of_birth ? (new Date().getFullYear() - new Date(targetPatient.date_of_birth).getFullYear()) : (rawScan?.patientAge || 65));
@@ -157,10 +163,6 @@ export default function ScanDetailPage() {
     : (patient.full_name || patient.name || scan.patientName || 'Patient Record');
   const pMrn = patient.patient_code || patient.mrn || 'NA-2026-0035';
   const pInitials = pName.split(' ').map(n => n[0]).join('').slice(0, 2) || 'PT';
-  const currentScanId = scanId || targetScanId || rawScan?.scanId || rawScan?.scan_id_string || rawScan?.id || 'SCN-DEFAULT';
-
-  const userDecisions = useMemo(() => getStoredDecisions(currentUser), [currentUser]);
-  const localDecision = userDecisions[currentScanId] || (targetPatient?.id ? userDecisions[targetPatient.id] : null) || (targetPatient?._id ? userDecisions[targetPatient._id] : null);
 
   const isServerReviewed = Boolean(
     localDecision?.isSignedOff ||

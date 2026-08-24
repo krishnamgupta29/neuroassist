@@ -57,14 +57,15 @@ export default function PatientsDirectoryPage() {
       });
       const latestScan = patientScans.length > 0 ? patientScans[0] : null;
       const scanId = latestScan?.scanId || latestScan?.scan_id_string || latestScan?.id || getPatientDeterministicScanId(p);
-      const seeded = generateScanData(scanId);
-
       const storedDec = storedDecisions[pId] || (latestScan && storedDecisions[latestScan.scanId || latestScan.scan_id_string || latestScan.id]) || storedDecisions[scanId];
 
-      const rawFinding = storedDec?.prediction || latestScan?.prediction || latestScan?.condition || seeded.prediction || 'CN';
+      const patientCond = storedDec?.prediction || latestScan?.prediction || latestScan?.condition || p.condition || p.diagnosis || null;
+      const seeded = generateScanData(scanId, '', patientCond);
+
+      const rawFinding = patientCond || seeded.prediction || 'CN';
       const rawCondition = (rawFinding || 'CN').toUpperCase();
       const realCondition = rawCondition.includes('AD') ? 'AD' : rawCondition.includes('MCI') ? 'MCI' : 'CN';
-      const realRisk = storedDec?.riskScore ?? latestScan?.riskScore ?? latestScan?.risk_score ?? seeded.riskScore;
+      const realRisk = storedDec?.riskScore ?? latestScan?.riskScore ?? latestScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : seeded.riskScore);
       const isUrgent = p.urgentFlag || realCondition === 'AD' || realRisk >= 75;
 
       const pAge = p.age || (p.date_of_birth ? new Date().getFullYear() - new Date(p.date_of_birth).getFullYear() : (p.age || 65));
