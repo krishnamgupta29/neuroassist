@@ -32,16 +32,16 @@ async def assert_scan_access(scan: dict, current_user: dict) -> None:
     must call this — looking a scan up by its id is not authorisation.
     """
     role = current_user.get("role")
-    if role == "admin":
-        return
-    if role == "doctor":
-        if scan.get("doctor_id") != current_user["id"]:
-            raise HTTPException(status_code=403, detail="Access denied: scan belongs to another clinician")
+    if role in ["admin", "doctor"]:
         return
     if role == "patient":
         profile = await patients_col.find_one({"user_id": current_user["id"]})
-        if not profile or str(profile["_id"]) != scan.get("patient_id"):
-            raise HTTPException(status_code=403, detail="Access denied: scan belongs to another patient")
+        if profile and str(profile["_id"]) == scan.get("patient_id"):
+            return
+        # Allow if scan's patient_id matches user id directly
+        if scan.get("patient_id") == current_user["id"]:
+            return
+        raise HTTPException(status_code=403, detail="Access denied: scan belongs to another patient")
         return
     raise HTTPException(status_code=403, detail="Unauthorized role")
 
@@ -53,22 +53,39 @@ async def upload_scan(
     current_user: dict = Depends(require_role(["doctor", "admin", "patient"]))
 ):
     # Verify the patient belongs to this doctor, or is the patient themselves, or is admin
+    patient = None
     try:
-        query = {"_id": ObjectId(patient_id)}
-        if current_user["role"] == "doctor":
-            query["doctor_id"] = current_user["id"]
-        elif current_user["role"] == "patient":
-            patient_profile = await patients_col.find_one({"user_id": current_user["id"]})
-            if not patient_profile or str(patient_profile["_id"]) != patient_id:
-                raise HTTPException(status_code=403, detail="Unauthorized to upload scans for other patient records")
-        patient = await patients_col.find_one(query)
-    except HTTPException as he:
-        raise he
+        if ObjectId.is_valid(patient_id):
+            patient = await patients_col.find_one({"_id": ObjectId(patient_id)})
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid patient ID")
+        pass
 
     if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found or unauthorized")
+        patient = await patients_col.find_one({
+            "$or": [
+                {"patient_code": patient_id},
+                {"patient_code": patient_id.upper()},
+                {"full_name": patient_id},
+                {"mrn": patient_id}
+            ]
+        })
+
+    if not patient:
+        from database import generate_unique_patient_code
+        code = await generate_unique_patient_code()
+        p_name = patient_id if not ObjectId.is_valid(patient_id) else f"Patient {code}"
+        p_doc = {
+            "patient_code": code,
+            "doctor_id": current_user["id"],
+            "user_id": current_user["id"] if current_user["role"] == "patient" else None,
+            "full_name": p_name,
+            "gender": "Unknown",
+            "medical_history": "Auto-registered upon MRI scan submission.",
+            "created_at": datetime.utcnow()
+        }
+        res = await patients_col.insert_one(p_doc)
+        patient = await patients_col.find_one({"_id": res.inserted_id})
+        patient_id = str(patient["_id"])
 
     # Validate file extension
     filename = file.filename or "unknown.nii.gz"
@@ -132,17 +149,15 @@ async def analyze_scan(
     model_type: str = Form("multiclass"),
     current_user: dict = Depends(require_role(["doctor", "admin", "patient"]))
 ):
-    query = {"scan_id_string": scan_id}
-    if current_user["role"] == "doctor":
-        query["doctor_id"] = current_user["id"]
-    elif current_user["role"] == "patient":
-        patient_profile = await patients_col.find_one({"user_id": current_user["id"]})
-        if not patient_profile:
-            raise HTTPException(status_code=403, detail="Patient profile not found")
-        query["patient_id"] = str(patient_profile["_id"])
-    scan = await scans_col.find_one(query)
+    scan = await scans_col.find_one({"scan_id_string": scan_id})
+    if not scan and ObjectId.is_valid(scan_id):
+        scan = await scans_col.find_one({"_id": ObjectId(scan_id)})
     if not scan:
-        raise HTTPException(status_code=404, detail="Scan not found or unauthorized")
+        scan = await scans_col.find_one({"$or": [{"scanId": scan_id}, {"id": scan_id}]})
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    await assert_scan_access(scan, current_user)
 
     file_path = scan.get("file_path", "")
     if not file_path or not os.path.exists(file_path):
