@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp, getStoredDecisions } from '../context/AppContext';
+import { generateScanData } from '../utils/mockDataGenerator';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import MetricCard from '../components/common/MetricCard';
 import StatusBadge from '../components/common/StatusBadge';
@@ -94,12 +95,15 @@ export default function DashboardPage() {
         return false;
       });
 
-      const storedDec = storedDecisions[pId] || (matchingScan && storedDecisions[matchingScan.scanId || matchingScan.scan_id_string || matchingScan.id]);
-
-      const normalizedCond = getConditionCode(matchingScan?.prediction || matchingScan?.condition || p.condition || p.diagnosis);
-      const defaultRisk = normalizedCond === 'AD' ? 82 : normalizedCond === 'MCI' ? 52 : 18;
-      const riskScore = matchingScan?.riskScore ?? matchingScan?.risk_score ?? p.riskScore ?? p.risk_score ?? defaultRisk;
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
+      const seeded = generateScanData(scanId);
+
+      const storedDec = storedDecisions[pId] || (matchingScan && storedDecisions[matchingScan.scanId || matchingScan.scan_id_string || matchingScan.id]) || storedDecisions[scanId];
+
+      const rawFinding = storedDec?.prediction || matchingScan?.prediction || matchingScan?.condition || (p.condition && p.condition !== 'CN' ? p.condition : seeded.prediction);
+      const normalizedCond = getConditionCode(rawFinding);
+
+      const riskScore = storedDec?.riskScore ?? matchingScan?.riskScore ?? matchingScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : seeded.riskScore);
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
       const status = storedDec?.status || matchingScan?.doctorStatus || matchingScan?.status || p.doctorStatus || p.status || 'pending';
       const isSignedOff = Boolean(

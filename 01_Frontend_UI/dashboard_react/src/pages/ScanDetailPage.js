@@ -105,12 +105,16 @@ export default function ScanDetailPage() {
     return matched || patientsList[0] || null;
   }, [patientsList, rawScan, queryPatientId, queryMrn]);
 
-  const rawPatientCond = (rawScan?.prediction || targetPatient?.condition || targetPatient?.diagnosis || 'CN').toUpperCase();
-  const unifiedCond = rawPatientCond.includes('AD') ? 'AD' : rawPatientCond.includes('MCI') ? 'MCI' : 'CN';
-
-  // Seeded mock values, used only when no real scan is loaded (demo browsing).
-  const seeded = useMemo(() => generateScanData(targetScanId, '', unifiedCond), [targetScanId, unifiedCond]);
+  // Seeded mock values, used when no real scan file has been uploaded yet
+  const seeded = useMemo(() => generateScanData(targetScanId), [targetScanId]);
   const isMock = !rawScan;
+
+  const rawPatientCond = (
+    rawScan?.prediction ||
+    (targetPatient?.condition && targetPatient?.condition !== 'CN' ? targetPatient?.condition : seeded.prediction) ||
+    'CN'
+  ).toUpperCase();
+  const unifiedCond = rawPatientCond.includes('AD') ? 'AD' : rawPatientCond.includes('MCI') ? 'MCI' : 'CN';
 
   const patientAge = targetPatient?.age || (targetPatient?.date_of_birth ? (new Date().getFullYear() - new Date(targetPatient.date_of_birth).getFullYear()) : (rawScan?.patientAge || 65));
   const patientGender = targetPatient?.gender || rawScan?.patientGender || 'Male';

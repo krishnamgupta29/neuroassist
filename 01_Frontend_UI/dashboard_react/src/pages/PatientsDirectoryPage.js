@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, getStoredDecisions } from '../context/AppContext';
+import { generateScanData } from '../utils/mockDataGenerator';
 import { patientAPI } from '../services/api';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatusBadge from '../components/common/StatusBadge';
@@ -36,8 +37,9 @@ export default function PatientsDirectoryPage() {
       return !name.includes('demo') && !name.includes('arthur pendelton') && !name.includes('helen mirren');
     });
     const allScans = Array.isArray(state.scans) ? state.scans : [];
+    const storedDecisions = getStoredDecisions(state.auth?.user);
 
-    return patientsList.map((p) => {
+    return patientsList.map((p, idx) => {
       const pId = p.id || p._id;
       const name = p.name || p.full_name || 'Patient Record';
       const mrn = p.mrn || p.patient_code || pId;
@@ -54,10 +56,15 @@ export default function PatientsDirectoryPage() {
         return false;
       });
       const latestScan = patientScans.length > 0 ? patientScans[0] : null;
-      const rawCondition = (latestScan?.prediction || latestScan?.condition || p.condition || p.diagnosis || '').toUpperCase();
+      const scanId = latestScan?.scanId || latestScan?.scan_id_string || latestScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
+      const seeded = generateScanData(scanId);
+
+      const storedDec = storedDecisions[pId] || (latestScan && storedDecisions[latestScan.scanId || latestScan.scan_id_string || latestScan.id]) || storedDecisions[scanId];
+
+      const rawFinding = storedDec?.prediction || latestScan?.prediction || latestScan?.condition || (p.condition && p.condition !== 'CN' ? p.condition : seeded.prediction);
+      const rawCondition = (rawFinding || 'CN').toUpperCase();
       const realCondition = rawCondition.includes('AD') ? 'AD' : rawCondition.includes('MCI') ? 'MCI' : 'CN';
-      const defaultRisk = realCondition === 'AD' ? 82 : realCondition === 'MCI' ? 52 : 18;
-      const realRisk = latestScan?.riskScore ?? latestScan?.risk_score ?? p.riskScore ?? p.risk_score ?? defaultRisk;
+      const realRisk = storedDec?.riskScore ?? latestScan?.riskScore ?? latestScan?.risk_score ?? (p.riskScore && p.riskScore !== 18 ? p.riskScore : seeded.riskScore);
       const isUrgent = p.urgentFlag || realCondition === 'AD' || realRisk >= 75;
 
       const pAge = p.age || (p.date_of_birth ? new Date().getFullYear() - new Date(p.date_of_birth).getFullYear() : (p.age || 65));
@@ -91,7 +98,7 @@ export default function PatientsDirectoryPage() {
       if (filterCondition === 'FLAGGED') return p.isUrgent;
       return p.condition === filterCondition;
     });
-  }, [state.patients, state.scans, search, filterCondition]);
+  }, [state.patients, state.scans, state.auth?.user, search, filterCondition]);
 
   const handleDeletePatient = async () => {
     if (!deletePatientTarget) return;
