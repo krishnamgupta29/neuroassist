@@ -91,8 +91,9 @@ export default function GradCamViewer({
   // Map 0-100 slider to nearest 5% real slice file
   const roundedSlice = Math.min(100, Math.max(0, Math.round(sliceIndex / 5) * 5));
 
-  // Base raw MRI grayscale slice
-  const rawMriSrc = `/assets/mri/${activeSliceView}_${roundedSlice}.jpg`;
+  // Condition-specific anatomical MRI slice series (CN, MCI, AD)
+  const conditionCode = cond === 'AD' ? 'AD' : cond === 'MCI' ? 'MCI' : 'CN';
+  const rawMriSrc = `/assets/mri/${activeSliceView}_${conditionCode}_${roundedSlice}.jpg`;
   const fallbackRawSrc = `/assets/mri/${activeSliceView}_raw.jpg`;
 
   // Dynamic landmark & biomarker focus based on patient condition & view

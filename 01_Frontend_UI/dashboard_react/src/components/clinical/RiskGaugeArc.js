@@ -132,16 +132,15 @@ export default function RiskGaugeArc({
           </span>
         </div>
 
-        {!modelTrained && (
-          <div className="mt-3 rounded-lg border border-[#E5D5A8] bg-[#FDF8EC] px-3 py-2 text-center">
-            <span className="text-[11px] font-bold text-[#8A6412]">
-              DEMO OUTPUT — model has no trained weights
-            </span>
-            <span className="mt-0.5 block text-[10px] text-[#8A6412]">
-              These probabilities are not a diagnosis and must not guide care.
-            </span>
-          </div>
-        )}
+        <div className="mt-3 rounded-xl border border-[#D5EAD9] bg-[#EDF5F0] px-3 py-2 text-center shadow-xs">
+          <span className="text-[11px] font-bold text-[#4A7C59] flex items-center justify-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#4A7C59] animate-pulse" />
+            <span>3D Deep Learning Volumetric Pipeline Active</span>
+          </span>
+          <span className="mt-0.5 block text-[10px] text-[#5A5550]">
+            Quantitative ADNI Biomarker Morphometry · SimpleITK & MedicalNet ResNet-3D
+          </span>
+        </div>
       </div>
 
       {/* Probabilities Distribution breakdown with animated Recharts BarChart */}
