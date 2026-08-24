@@ -6,7 +6,7 @@ import RiskGaugeArc from '../components/clinical/RiskGaugeArc';
 import GradCamViewer from '../components/clinical/GradCamViewer';
 import StatusBadge from '../components/common/StatusBadge';
 import ClinicalReportModal from '../components/clinical/ClinicalReportModal';
-import { generateScanData } from '../utils/mockDataGenerator';
+import { generateScanData, getPatientDeterministicScanId } from '../utils/mockDataGenerator';
 import { scanAPI } from '../services/api';
 import { 
   FiCheck,
@@ -105,8 +105,8 @@ export default function ScanDetailPage() {
     return matched || patientsList[0] || null;
   }, [patientsList, rawScan, queryPatientId, queryMrn]);
 
-  const explicitPatientCond = targetPatient?.condition || targetPatient?.diagnosis || null;
-  const seeded = useMemo(() => generateScanData(targetScanId, '', explicitPatientCond), [targetScanId, explicitPatientCond]);
+  const resolvedScanId = targetScanId || (targetPatient ? getPatientDeterministicScanId(targetPatient) : 'SCN-700001');
+  const seeded = useMemo(() => generateScanData(resolvedScanId), [resolvedScanId]);
   const isMock = !rawScan;
 
   const rawScanPred = rawScan?.prediction || seeded.prediction || 'CN';
@@ -121,8 +121,8 @@ export default function ScanDetailPage() {
 
   // `??` not `||`: a real riskScore or confidence of 0 is a value, not a miss.
   const scan = {
-    scanId: targetScanId,
-    scan_id_string: targetScanId,
+    scanId: resolvedScanId,
+    scan_id_string: resolvedScanId,
     patientId: rawScan?.patientId ?? rawScan?.patient_id ?? targetPatient?.id ?? '',
     patientName: targetPatient?.full_name || targetPatient?.name || rawScan?.patientName || rawScan?.patient || 'Patient Record',
     patientAge: patientAge,

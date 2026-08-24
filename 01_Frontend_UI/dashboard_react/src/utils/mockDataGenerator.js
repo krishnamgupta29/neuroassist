@@ -54,7 +54,19 @@ function randInt(rng, min, max) {
   return Math.floor(randFloat(rng, min, max + 1));
 }
 
-// ─── Exported Generators ────────────────────────────────────────────
+/**
+ * Deterministic unique scan ID tied immutably to a patient's MRN / ID.
+ * Never changes across renders, refreshes, or sort orders.
+ */
+export function getPatientDeterministicScanId(patient) {
+  if (!patient) return 'SCN-700001';
+  if (patient.scanId) return patient.scanId;
+  if (patient.lastScanId) return patient.lastScanId;
+  const raw = String(patient.patient_code || patient.mrn || patient.id || patient._id || '').replace(/\D/g, '');
+  const digits = raw.length > 0 ? parseInt(raw.slice(-6), 10) : 700001;
+  const offset = ((digits * 1321) % 199999) + 700000;
+  return `SCN-${offset}`;
+}
 
 /**
  * Generate mock scan data for a given scanId string or file identifier.

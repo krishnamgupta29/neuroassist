@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp, getStoredDecisions } from '../context/AppContext';
-import { generateScanData } from '../utils/mockDataGenerator';
+import { generateScanData, getPatientDeterministicScanId } from '../utils/mockDataGenerator';
 import { patientAPI } from '../services/api';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import StatusBadge from '../components/common/StatusBadge';
@@ -56,9 +56,8 @@ export default function PatientsDirectoryPage() {
         return false;
       });
       const latestScan = patientScans.length > 0 ? patientScans[0] : null;
-      const scanId = latestScan?.scanId || latestScan?.scan_id_string || latestScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
-      const patientCond = p.condition || p.diagnosis || null;
-      const seeded = generateScanData(scanId, '', patientCond);
+      const scanId = latestScan?.scanId || latestScan?.scan_id_string || latestScan?.id || getPatientDeterministicScanId(p);
+      const seeded = generateScanData(scanId);
 
       const storedDec = storedDecisions[pId] || (latestScan && storedDecisions[latestScan.scanId || latestScan.scan_id_string || latestScan.id]) || storedDecisions[scanId];
 

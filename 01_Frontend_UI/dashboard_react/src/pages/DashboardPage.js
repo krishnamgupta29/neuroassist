@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp, getStoredDecisions } from '../context/AppContext';
-import { generateScanData } from '../utils/mockDataGenerator';
+import { generateScanData, getPatientDeterministicScanId } from '../utils/mockDataGenerator';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import MetricCard from '../components/common/MetricCard';
 import StatusBadge from '../components/common/StatusBadge';
@@ -95,9 +95,8 @@ export default function DashboardPage() {
         return false;
       });
 
-      const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
-      const patientCond = p.condition || p.diagnosis || null;
-      const seeded = generateScanData(scanId, '', patientCond);
+      const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || getPatientDeterministicScanId(p);
+      const seeded = generateScanData(scanId);
 
       const storedDec = storedDecisions[pId] || (matchingScan && storedDecisions[matchingScan.scanId || matchingScan.scan_id_string || matchingScan.id]) || storedDecisions[scanId];
 
