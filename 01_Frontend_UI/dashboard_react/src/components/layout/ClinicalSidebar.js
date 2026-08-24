@@ -1,7 +1,6 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useApp, getStoredDecisions } from '../../context/AppContext';
-import { generateScanData } from '../../utils/mockDataGenerator';
+import { useApp } from '../../context/AppContext';
 import { 
   FiGrid, 
   FiUploadCloud, 
@@ -17,64 +16,6 @@ export default function ClinicalSidebar() {
   const navigate = useNavigate();
   const user = state.auth?.user;
   const isPatient = user?.role === 'patient';
-  const userDecisions = useMemo(() => getStoredDecisions(user), [user]);
-
-  const rawPatients = state.patients;
-  const patients = Array.isArray(rawPatients) ? rawPatients : (rawPatients?.patients || rawPatients?.items || []);
-  const patientById = {};
-  const patientByName = {};
-  patients.forEach(p => {
-    if (p.id || p._id) patientById[p.id || p._id] = p;
-    const nm = (p.full_name || p.name || '').toLowerCase();
-    if (nm) patientByName[nm] = p;
-  });
-
-  const rawScans = Array.isArray(state.scans) ? state.scans : (state.scans?.items || []);
-  const uniqueScans = [];
-  const seenPatients = new Set();
-  const seenScanIds = new Set();
-
-  for (const s of rawScans) {
-    const scanId = s.scanId || s.scan_id_string || s.id;
-    const pId = s.patientId || s.patient_id;
-    const pName = (s.patientName || s.patient || s.patient_name || '').trim().toLowerCase();
-    const resolvedPatient = (pId && patientById[pId]) || (pName && patientByName[pName]);
-
-    if (!resolvedPatient && !pName && !scanId) continue;
-
-    const patientKey = (resolvedPatient?.id || resolvedPatient?._id || pId || pName || scanId || 'unknown').toLowerCase();
-
-    // Ensure only 1 entry per unique patient in the sidebar quick access
-    if (scanId && !seenScanIds.has(scanId) && !seenPatients.has(patientKey)) {
-      seenScanIds.add(scanId);
-      seenPatients.add(patientKey);
-
-      const storedDec = userDecisions[scanId] || (resolvedPatient?.id ? userDecisions[resolvedPatient.id] : null) || (resolvedPatient?._id ? userDecisions[resolvedPatient._id] : null);
-      const seeded = generateScanData(scanId);
-
-      const rawPred = (storedDec?.prediction || s.prediction || (s.condition && s.condition !== 'CN' ? s.condition : null) || (resolvedPatient?.condition && resolvedPatient.condition !== 'CN' ? resolvedPatient.condition : null) || seeded.prediction || s.condition || 'CN').toUpperCase();
-      const pred = rawPred.includes('AD') ? 'AD' : rawPred.includes('MCI') ? 'MCI' : 'CN';
-      uniqueScans.push({
-        ...s,
-        scanId: scanId,
-        prediction: pred,
-        _resolvedName: resolvedPatient?.full_name || resolvedPatient?.name || s.patientName || s.patient || s.patient_name || 'Patient'
-      });
-    }
-  }
-  const scans = uniqueScans;
-  const pendingCount = (Array.isArray(state.scans) ? state.scans : []).filter((s) => {
-    const isDone = Boolean(
-      s.isSignedOff ||
-      s.reviewed_at ||
-      s.reviewedAt ||
-      s.doctor_diagnosis ||
-      s.doctorDiagnosis ||
-      ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(s.doctorStatus) ||
-      ['accepted', 'flagged', 'overridden'].includes(s.status)
-    );
-    return !isDone;
-  }).length;
 
   // Role-based Nav Links
   const navLinks = isPatient
@@ -128,50 +69,6 @@ export default function ClinicalSidebar() {
             })}
           </nav>
         </div>
-
-        {/* Recent Scans Quick Access (Doctor Only) */}
-        {!isPatient && scans.length > 0 && (
-          <div className="pt-4 border-t border-[#E8E2DA]">
-            <div className="px-3 mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#A39E98]">
-                Recent Scans
-              </span>
-              {pendingCount > 0 && (
-                <span className="text-[10px] font-bold text-[#7A1F2B] bg-[#F8EAED] px-1.5 py-0.5 rounded border border-[#ECC8CF]">
-                  {pendingCount} Pending
-                </span>
-              )}
-            </div>
-            <div className="space-y-1">
-              {scans.slice(0, 3).map((scan) => {
-                const scanId = scan.scanId || scan.scan_id_string || scan.id;
-                const name = scan._resolvedName || scan.patientName || scan.patient_name || 'Patient';
-                const pred = scan.prediction || '—';
-                return (
-                  <NavLink
-                    key={scanId}
-                    to={`/dashboard/scan/${scanId}`}
-                    className={({ isActive }) =>
-                      `flex flex-col px-3 py-2 rounded-xl text-xs transition-all ${
-                        isActive
-                          ? 'bg-white shadow-clinical border border-[#E8E2DA]'
-                          : 'hover:bg-[#F0E8E1] text-[#5A5550]'
-                      }`
-                    }
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[#22201F]">{name}</span>
-                      <span className={`text-[10px] font-bold uppercase ${pred === 'AD' ? 'text-[#7A1F2B]' : pred === 'MCI' ? 'text-[#B87326]' : 'text-[#4A7C59]'}`}>
-                        {pred}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-[#7A756F] font-mono mt-0.5">{scanId}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Doctor-in-the-Loop Box (Doctor Only) */}
         {!isPatient && (
