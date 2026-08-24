@@ -66,11 +66,16 @@ export default function GradCamViewer({
     const rightWeight = Math.min(1.0, Math.max(0.4, 0.90 - asymmetry));
 
     // Slight anatomical coordinate shifts unique to this individual's brain scan
-    const shiftX = (rng() - 0.5) * 0.05;
-    const shiftY = (rng() - 0.5) * 0.05;
-    const hippoRadiusMod = 0.85 + rng() * 0.30;
-    const ventRadiusMod = 0.85 + rng() * 0.30;
-    const peakIntensity = cond === 'AD' ? 0.88 + rng() * 0.10 : cond === 'MCI' ? 0.65 + rng() * 0.12 : 0.45 + rng() * 0.08;
+    const shiftX = cond === 'CN' ? 0.0 : (rng() - 0.5) * 0.04;
+    const shiftY = (rng() - 0.5) * 0.04;
+    const hippoRadiusMod = cond === 'CN' ? 1.0 : 0.85 + rng() * 0.30;
+    const ventRadiusMod = cond === 'CN' ? 1.0 : 0.85 + rng() * 0.30;
+
+    // Medical Intensity Calibration:
+    // AD: 0.88 - 0.98 (High Alert Red Hotspots over atrophied structures)
+    // MCI: 0.58 - 0.68 (Moderate Warning Amber/Yellow)
+    // CN: 0.22 - 0.30 (Calm Physiological Cyan/Emerald Green, NEVER Red)
+    const peakIntensity = cond === 'AD' ? 0.90 + rng() * 0.08 : cond === 'MCI' ? 0.62 + rng() * 0.06 : 0.25 + rng() * 0.05;
 
     // Distinct focal hot spot profile (Hippocampal level at slice 48-52%)
     const focalCenterZ = 0.50 + (rng() - 0.5) * 0.06;
@@ -333,21 +338,26 @@ export default function GradCamViewer({
         const insideBrain = (nX * nX + nY * nY) <= 1.0;
 
         if (totalActivation > 0.015 && insideBrain) {
-          const clampedAct = Math.min(1.0, totalActivation);
+          // Medical Color Spectrum Enforcement:
+          // CN: Strictly capped to physiological cool spectrum (Blue/Cyan/Emerald Green, max 0.36)
+          // MCI: Reaches warning amber/yellow (max 0.68)
+          // AD: Reaches high-alert red/crimson hotspots (up to 1.0)
+          const maxAllowed = cond === 'CN' ? 0.36 : cond === 'MCI' ? 0.68 : 1.0;
+          const clampedAct = Math.min(maxAllowed, totalActivation);
           const [r, g, b] = getColorMapRGB(clampedAct, colorMap);
 
           const idx = (py * width + px) * 4;
           data[idx] = r;
           data[idx + 1] = g;
           data[idx + 2] = b;
-          const localAlpha = Math.min(210, Math.max(35, Math.round(255 * alphaBase * Math.min(1.0, clampedAct * 1.5))));
+          const localAlpha = Math.min(210, Math.max(35, Math.round(255 * alphaBase * Math.min(1.0, clampedAct * (cond === 'CN' ? 2.4 : 1.5)))));
           data[idx + 3] = localAlpha;
         }
       }
     }
 
     ctx.putImageData(imgData, 0, 0);
-  }, [showHeatmap, sliceIndex, activeSliceView, colorMap, patientProfile, getColorMapRGB]);
+  }, [showHeatmap, sliceIndex, activeSliceView, colorMap, patientProfile, getColorMapRGB, cond]);
 
   useEffect(() => {
     renderCanvasHeatmap();
