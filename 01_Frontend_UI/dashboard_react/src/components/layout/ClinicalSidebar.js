@@ -57,7 +57,18 @@ export default function ClinicalSidebar() {
     }
   }
   const scans = uniqueScans;
-  const pendingCount = (Array.isArray(state.scans) ? state.scans : []).filter((s) => (s.doctorStatus || s.status) === 'pending').length;
+  const pendingCount = (Array.isArray(state.scans) ? state.scans : []).filter((s) => {
+    const isDone = Boolean(
+      s.isSignedOff ||
+      s.reviewed_at ||
+      s.reviewedAt ||
+      s.doctor_diagnosis ||
+      s.doctorDiagnosis ||
+      ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(s.doctorStatus) ||
+      ['accepted', 'flagged', 'overridden'].includes(s.status)
+    );
+    return !isDone;
+  }).length;
 
   // Role-based Nav Links
   const navLinks = isPatient

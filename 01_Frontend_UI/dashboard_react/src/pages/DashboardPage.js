@@ -98,8 +98,16 @@ export default function DashboardPage() {
       const scanId = matchingScan?.scanId || matchingScan?.scan_id_string || matchingScan?.id || `SCN-${700000 + (idx * 1321) % 200000}`;
       const uploadDate = matchingScan?.uploadDate || matchingScan?.date || p.lastScanDate || p.created_at || 'Recent';
       const status = matchingScan?.doctorStatus || matchingScan?.status || p.status || 'pending';
-      const isSignedOff = matchingScan?.isSignedOff || status === 'signed_off' || status === 'accepted' || status === 'approved' || status === 'flagged';
-      const isFlagged = status === 'flagged' || p.urgentFlag;
+      const isSignedOff = Boolean(
+        matchingScan?.isSignedOff ||
+        matchingScan?.reviewed_at ||
+        matchingScan?.reviewedAt ||
+        matchingScan?.doctor_diagnosis ||
+        matchingScan?.doctorDiagnosis ||
+        ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(status) ||
+        ['signed_off', 'accepted', 'approved', 'flagged', 'overridden'].includes(matchingScan?.doctorStatus)
+      );
+      const isFlagged = status === 'flagged' || matchingScan?.doctorStatus === 'flagged' || p.urgentFlag;
 
       return {
         patientId: pId,

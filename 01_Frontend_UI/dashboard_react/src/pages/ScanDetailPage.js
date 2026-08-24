@@ -137,33 +137,23 @@ export default function ScanDetailPage() {
   const pInitials = pName.split(' ').map(n => n[0]).join('').slice(0, 2) || 'PT';
 
   const currentScanId = scanId || rawScan?.scanId || rawScan?.scan_id_string || rawScan?.id || 'SCN-DEFAULT';
-  const storageKey = `na_signoff_${currentScanId}`;
+  const isServerReviewed = Boolean(
+    rawScan?.reviewed_at ||
+    rawScan?.reviewedAt ||
+    rawScan?.doctor_diagnosis ||
+    rawScan?.doctorDiagnosis ||
+    (rawScan?.doctorStatus && rawScan?.doctorStatus !== 'pending') ||
+    (rawScan?.status && ['accepted', 'flagged', 'overridden', 'signed_off'].includes(rawScan.status))
+  );
 
-  // Helper to read sign-off from localStorage or memory
-  const getSavedDecision = () => {
-    try {
-      const direct = localStorage.getItem(storageKey);
-      if (direct) return JSON.parse(direct);
-      const allScans = JSON.parse(localStorage.getItem('na_scans') || '[]');
-      const match = allScans.find(s => (s.scanId || s.scan_id_string || s.id) === currentScanId);
-      if (match && (match.isSignedOff || (match.doctorStatus && match.doctorStatus !== 'pending'))) {
-        return {
-          status: match.doctorStatus,
-          notes: match.doctorNotes,
-          isSignedOff: true,
-          signedOffAt: match.signedOffAt,
-          signedOffBy: match.signedOffBy
-        };
-      }
-    } catch (e) {}
-    return null;
-  };
+  const serverReviewStatus = rawScan?.doctorStatus || rawScan?.status || (rawScan?.doctor_diagnosis ? 'accepted' : 'accepted');
+  const serverReviewNotes = rawScan?.doctor_notes || rawScan?.doctorNotes || '';
+  const serverReviewedTime = rawScan?.reviewed_at || rawScan?.reviewedAt || '';
 
-  const initialSaved = getSavedDecision();
-  const [decisionNotes, setDecisionNotes] = useState(initialSaved?.notes || scan.doctorNotes || '');
-  const [selectedStatus, setSelectedStatus] = useState(initialSaved?.status || scan.doctorStatus || 'accepted');
-  const [isSignedOff, setIsSignedOff] = useState(Boolean(initialSaved?.isSignedOff || scan.isSignedOff));
-  const [signedOffTime, setSignedOffTime] = useState(initialSaved?.signedOffAt || scan.signedOffAt || '');
+  const [decisionNotes, setDecisionNotes] = useState(serverReviewNotes || scan.doctorNotes || '');
+  const [selectedStatus, setSelectedStatus] = useState(serverReviewStatus);
+  const [isSignedOff, setIsSignedOff] = useState(isServerReviewed);
+  const [signedOffTime, setSignedOffTime] = useState(serverReviewedTime);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -173,7 +163,6 @@ export default function ScanDetailPage() {
     setIsDeleting(true);
     setDeleteError('');
     try {
-      // Confirm server-side before removing locally, or it reappears on reload.
       await scanAPI.delete(currentScanId);
     } catch (e) {
       setIsDeleting(false);
@@ -188,31 +177,38 @@ export default function ScanDetailPage() {
     navigate(isPatient ? '/dashboard/my-scans' : '/dashboard');
   };
 
-  const handleSaveDecision = (statusToSave = selectedStatus) => {
+  const handleSaveDecision = async (statusToSave = selectedStatus) => {
     const timeStr = new Date().toLocaleDateString('en-GB') + ' · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const doctorName = loggedInDoctor;
+
+    const actionMap = {
+      accepted: 'ACCEPT FINDING',
+      flagged: 'FLAG FOR REVIEW',
+      overridden: 'OVERRIDE DIAGNOSIS'
+    };
+
+    try {
+      await scanAPI.review(currentScanId, {
+        action: actionMap[statusToSave] || 'ACCEPT FINDING',
+        doctor_diagnosis: scan.prediction,
+        doctor_notes: decisionNotes
+      });
+    } catch (e) {
+      console.warn('Backend review sync notice:', e);
+    }
 
     const signOffPayload = {
       scanId: currentScanId,
       status: statusToSave,
       notes: decisionNotes,
       signedOffAt: timeStr,
-      signedOffBy: doctorName
+      signedOffBy: doctorName,
+      isSignedOff: true,
     };
 
     setSelectedStatus(statusToSave);
     setIsSignedOff(true);
     setSignedOffTime(timeStr);
-
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({
-        status: statusToSave,
-        notes: decisionNotes,
-        isSignedOff: true,
-        signedOffAt: timeStr,
-        signedOffBy: doctorName
-      }));
-    } catch (e) {}
 
     dispatch({
       type: 'UPDATE_SCAN_DECISION',
@@ -445,7 +441,7 @@ export default function ScanDetailPage() {
                     <span>Recorded: {signedOffTime || 'Just now'}</span>
                   </span>
                   <span className="font-semibold text-[#22201F] font-sans">
-                    {patient.assignedDoctor || 'Dr. Krishnam'}
+                    {loggedInDoctor}
                   </span>
                 </div>
               </div>
