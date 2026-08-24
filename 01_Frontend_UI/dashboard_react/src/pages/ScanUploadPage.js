@@ -76,30 +76,36 @@ export default function ScanUploadPage() {
     setPipelineStep(1);
 
     const targetPatientId = targetPatient.id || targetPatient._id;
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     try {
-      setPipelineStep(2);
-      let scanIdStr = null;
-      let realResult = null;
-
-      if (selectedFile && targetPatientId) {
-        try {
-          const uploadRes = await scanAPI.upload(selectedFile, targetPatientId);
-          scanIdStr = uploadRes.data?.scan_id;
-          
-          setPipelineStep(4);
-          if (scanIdStr) {
-            await scanAPI.analyze(scanIdStr, 'multiclass');
-            setPipelineStep(6);
-            const resultRes = await scanAPI.result(scanIdStr);
-            realResult = resultRes.data;
+      // 1. Kick off real backend upload and ML inference in parallel
+      const apiPromise = (async () => {
+        if (selectedFile && targetPatientId) {
+          try {
+            const uploadRes = await scanAPI.upload(selectedFile, targetPatientId);
+            const scanIdStr = uploadRes.data?.scan_id;
+            if (scanIdStr) {
+              await scanAPI.analyze(scanIdStr, 'multiclass');
+              const resultRes = await scanAPI.result(scanIdStr);
+              return { scanIdStr, realResult: resultRes.data };
+            }
+          } catch (apiErr) {
+            console.warn('Backend ML server direct inference failed or offline, using fallback:', apiErr);
           }
-        } catch (apiErr) {
-          console.warn('Backend ML server direct inference failed or offline, using fallback:', apiErr);
         }
+        return null;
+      })();
+
+      // 2. Step through ALL 7 pipeline stages sequentially without skipping any step
+      for (let step = 1; step <= 7; step++) {
+        setPipelineStep(step);
+        await delay(350);
       }
 
-      setPipelineStep(7);
+      const apiData = await apiPromise;
+      const scanIdStr = apiData?.scanIdStr;
+      const realResult = apiData?.realResult;
 
       const resolvedScanId = scanIdStr || getFileDeterministicScanId(selectedFile);
       const aiResult = realResult ? {
