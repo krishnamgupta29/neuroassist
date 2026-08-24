@@ -116,13 +116,14 @@ def run_preprocessing(file_path: str) -> sitk.Image:
         image.SetSpacing((1.0, 1.0, 1.0))
         image.SetOrigin((0.0, 0.0, 0.0))
 
-    # 2. N4 Bias Field Correction
+    # 2. N4 Bias Field Correction (Fast Clinical Preprocessing)
     try:
         mask_image = sitk.OtsuThreshold(image, 0, 1, 200)
         shrink_factor = 4
         down_img = sitk.Shrink(image, [shrink_factor] * image.GetDimension())
         down_mask = sitk.Shrink(mask_image, [shrink_factor] * image.GetDimension())
         corrector = sitk.N4BiasFieldCorrectionImageFilter()
+        corrector.SetMaximumNumberOfIterations([10, 5, 2])
         corrector.Execute(down_img, down_mask)
         log_bias = corrector.GetLogBiasFieldAsImage(image)
         image = sitk.Exp(log_bias) * image
@@ -131,7 +132,7 @@ def run_preprocessing(file_path: str) -> sitk.Image:
 
     # 3. Denoising (Curvature Flow)
     try:
-        image = sitk.CurvatureFlow(image, timeStep=0.125, numberOfIterations=3)
+        image = sitk.CurvatureFlow(image, timeStep=0.125, numberOfIterations=2)
     except Exception as e:
         logger.warning(f"Denoising skipped: {e}")
 
@@ -165,7 +166,7 @@ def run_preprocessing(file_path: str) -> sitk.Image:
         input_direction = image.GetDirection()
         
         target_spacing = [
-            (input_size[i] * input_spacing[i]) / target_shape[i]
+            max(0.2, float((input_size[i] * max(0.1, input_spacing[i])) / target_shape[i]))
             for i in range(3)
         ]
         
