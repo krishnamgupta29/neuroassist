@@ -29,15 +29,24 @@ export default function ClinicalSidebar() {
 
   const rawScans = Array.isArray(state.scans) ? state.scans : (state.scans?.items || []);
   const uniqueScans = [];
-  const seenIds = new Set();
+  const seenPatients = new Set();
+  const seenScanIds = new Set();
+
   for (const s of rawScans) {
-    const id = s.scanId || s.scan_id_string || s.id;
+    const scanId = s.scanId || s.scan_id_string || s.id;
     const pId = s.patientId || s.patient_id;
-    const pName = (s.patientName || s.patient || '').toLowerCase();
-    const hasPatient = (pId && patientById[pId]) || (pName && patientByName[pName]);
-    if (id && !seenIds.has(id) && hasPatient) {
-      seenIds.add(id);
-      const resolvedPatient = (pId && patientById[pId]) || (pName && patientByName[pName]);
+    const pName = (s.patientName || s.patient || '').trim().toLowerCase();
+    const resolvedPatient = (pId && patientById[pId]) || (pName && patientByName[pName]);
+
+    if (!resolvedPatient && !pName) continue;
+
+    const patientKey = (resolvedPatient?.id || resolvedPatient?._id || pId || pName || 'unknown').toLowerCase();
+
+    // Ensure only 1 entry per unique patient in the sidebar quick access
+    if (scanId && !seenScanIds.has(scanId) && !seenPatients.has(patientKey)) {
+      seenScanIds.add(scanId);
+      seenPatients.add(patientKey);
+
       const rawPred = (s.prediction || s.condition || s.aiFinding || resolvedPatient?.condition || resolvedPatient?.diagnosis || 'CN').toUpperCase();
       const pred = rawPred.includes('AD') ? 'AD' : rawPred.includes('MCI') ? 'MCI' : 'CN';
       uniqueScans.push({
@@ -48,7 +57,7 @@ export default function ClinicalSidebar() {
     }
   }
   const scans = uniqueScans;
-  const pendingCount = scans.filter((s) => (s.doctorStatus || s.status) === 'pending').length;
+  const pendingCount = (Array.isArray(state.scans) ? state.scans : []).filter((s) => (s.doctorStatus || s.status) === 'pending').length;
 
   // Role-based Nav Links
   const navLinks = isPatient
