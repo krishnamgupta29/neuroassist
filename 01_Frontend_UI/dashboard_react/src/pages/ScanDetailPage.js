@@ -41,9 +41,15 @@ export default function ScanDetailPage() {
 
   // Pull the real record for this scan.
   const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(!listScan);
+
   useEffect(() => {
     let cancelled = false;
-    if (!scanId) return undefined;
+    if (!scanId) {
+      setLoading(false);
+      return undefined;
+    }
+    setLoading(!listScan);
     scanAPI
       .result(scanId)
       .then(res => {
@@ -62,9 +68,10 @@ export default function ScanDetailPage() {
           });
         }
       })
-      .catch(() => { if (!cancelled) setDetail(null); });
+      .catch(() => { if (!cancelled) setDetail(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [scanId, dispatch]);
+  }, [scanId, dispatch, listScan]);
 
   const rawScan = useMemo(() => {
     if (!detail) return listScan;
@@ -302,6 +309,30 @@ export default function ScanDetailPage() {
       normRange: 'Normal: > 2.65 mm'
     },
   ];
+
+  if (loading && !detail && !listScan) {
+    return (
+      <DashboardLayout
+        title={isPatient ? 'MRI Diagnostic Workstation' : 'Neuroimaging Workstation'}
+        subtitle={`Loading diagnostic scan ${scanId}...`}
+      >
+        <div className="flex flex-col items-center justify-center min-h-[420px] p-8 text-center bg-white rounded-2xl border border-[#E8E2DA] shadow-clinical-sm">
+          <div className="relative mb-6">
+            <div className="w-14 h-14 rounded-full border-4 border-[#F8EAED] border-t-[#7A1F2B] animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center font-bold text-[#7A1F2B] text-[11px] font-mono">
+              3D
+            </div>
+          </div>
+          <h3 className="font-serif font-bold text-lg text-[#22201F] mb-1">
+            Loading MRI Volumetric Series & Neural Heatmaps...
+          </h3>
+          <p className="text-xs text-[#7A756F] max-w-md">
+            Retrieving ResNet-10 deep learning tensor activations, 3D anatomical slice morphometry, and physician sign-off records for <span className="font-mono text-[#7A1F2B] font-semibold">{scanId}</span>.
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
