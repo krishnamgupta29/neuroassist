@@ -70,7 +70,7 @@ export default function GradCamViewer({
     const shiftY = (rng() - 0.5) * 0.05;
     const hippoRadiusMod = 0.85 + rng() * 0.30;
     const ventRadiusMod = 0.85 + rng() * 0.30;
-    const peakIntensity = cond === 'AD' ? 0.88 + rng() * 0.11 : cond === 'MCI' ? 0.60 + rng() * 0.18 : 0.05 + rng() * 0.05;
+    const peakIntensity = cond === 'AD' ? 0.88 + rng() * 0.10 : cond === 'MCI' ? 0.65 + rng() * 0.12 : 0.45 + rng() * 0.08;
 
     // Distinct focal hot spot profile (Hippocampal level at slice 48-52%)
     const focalCenterZ = 0.50 + (rng() - 0.5) * 0.06;
@@ -189,72 +189,76 @@ export default function GradCamViewer({
     const { leftWeight, rightWeight, shiftX, shiftY, hippoRadiusMod, ventRadiusMod, peakIntensity, focalCenterZ } = patientProfile;
 
     if (activeSliceView === 'axial') {
-      const hippoZWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.15, 2));
+      // 1. Hippocampal & Medial Temporal Network (Prominent around Slice 40-75)
+      const hippoZWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.28, 2));
       if (hippoZWeight > 0.05) {
         hotspots.push({
-          x: width * (0.37 + shiftX),
-          y: height * (0.56 + shiftY),
-          radius: width * (0.16 * hippoRadiusMod),
+          x: width * (0.36 + shiftX),
+          y: height * (0.58 + shiftY),
+          radius: width * (0.17 * hippoRadiusMod),
           intensity: peakIntensity * leftWeight * hippoZWeight,
           name: 'Left Hippocampus (CA1 Subfield)'
         });
         hotspots.push({
-          x: width * (0.63 + shiftX),
-          y: height * (0.56 + shiftY),
-          radius: width * (0.16 * hippoRadiusMod),
+          x: width * (0.64 + shiftX),
+          y: height * (0.58 + shiftY),
+          radius: width * (0.17 * hippoRadiusMod),
           intensity: peakIntensity * rightWeight * hippoZWeight,
           name: 'Right Hippocampus (Subiculum)'
         });
       }
 
-      const ventZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ - 0.05)) / 0.16, 2));
-      if (ventZWeight > 0.08) {
+      // 2. Lateral Ventricles & Periventricular Zones (Slice 30-70)
+      const ventZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ - 0.06)) / 0.26, 2));
+      if (ventZWeight > 0.05) {
         hotspots.push({
           x: width * (0.44 + shiftX * 0.5),
-          y: height * (0.48 + shiftY * 0.5),
-          radius: width * (0.14 * ventRadiusMod),
-          intensity: peakIntensity * 0.80 * leftWeight * ventZWeight,
+          y: height * (0.46 + shiftY * 0.5),
+          radius: width * (0.15 * ventRadiusMod),
+          intensity: peakIntensity * 0.82 * leftWeight * ventZWeight,
           name: 'Left Lateral Ventricle'
         });
         hotspots.push({
           x: width * (0.56 + shiftX * 0.5),
-          y: height * (0.48 + shiftY * 0.5),
-          radius: width * (0.14 * ventRadiusMod),
-          intensity: peakIntensity * 0.78 * rightWeight * ventZWeight,
+          y: height * (0.46 + shiftY * 0.5),
+          radius: width * (0.15 * ventRadiusMod),
+          intensity: peakIntensity * 0.80 * rightWeight * ventZWeight,
           name: 'Right Lateral Ventricle'
         });
       }
 
-      const tempZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ + 0.08)) / 0.14, 2));
-      if (tempZWeight > 0.08) {
+      // 3. Entorhinal Cortex & Temporal Horns (Slice 50-85)
+      const tempZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ + 0.12)) / 0.26, 2));
+      if (tempZWeight > 0.05) {
         hotspots.push({
           x: width * (0.28 + shiftX),
-          y: height * (0.60 + shiftY),
+          y: height * (0.62 + shiftY),
           radius: width * (0.18 * hippoRadiusMod),
-          intensity: peakIntensity * 0.86 * leftWeight * tempZWeight,
+          intensity: peakIntensity * 0.85 * leftWeight * tempZWeight,
           name: 'Left Entorhinal Cortex'
         });
         hotspots.push({
           x: width * (0.72 + shiftX),
-          y: height * (0.60 + shiftY),
+          y: height * (0.62 + shiftY),
           radius: width * (0.18 * hippoRadiusMod),
           intensity: peakIntensity * 0.83 * rightWeight * tempZWeight,
           name: 'Right Entorhinal Cortex'
         });
       }
 
-      const cortZWeight = Math.exp(-Math.pow((sliceFrac - 0.35) / 0.16, 2));
-      if (cortZWeight > 0.08 && cond !== 'CN') {
+      // 4. Prefrontal & Cortical Ribbon (Slice 10-45)
+      const cortZWeight = Math.exp(-Math.pow((sliceFrac - 0.30) / 0.25, 2));
+      if (cortZWeight > 0.05) {
         hotspots.push({
           x: width * (0.50 + shiftX),
-          y: height * (0.28 + shiftY),
+          y: height * (0.26 + shiftY),
           radius: width * 0.22,
-          intensity: peakIntensity * 0.60 * cortZWeight,
+          intensity: peakIntensity * 0.65 * cortZWeight,
           name: 'Prefrontal Cortical Ribbon'
         });
       }
     } else if (activeSliceView === 'coronal') {
-      const hippoCoronalWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.16, 2));
+      const hippoCoronalWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.28, 2));
       if (hippoCoronalWeight > 0.05) {
         hotspots.push({
           x: width * (0.38 + shiftX),
@@ -274,19 +278,19 @@ export default function GradCamViewer({
           x: width * (0.44 + shiftX),
           y: height * (0.44 + shiftY),
           radius: width * (0.15 * ventRadiusMod),
-          intensity: peakIntensity * 0.74 * leftWeight * hippoCoronalWeight,
+          intensity: peakIntensity * 0.76 * leftWeight * hippoCoronalWeight,
           name: 'Coronal Ventricles'
         });
         hotspots.push({
           x: width * (0.56 + shiftX),
           y: height * (0.44 + shiftY),
           radius: width * (0.15 * ventRadiusMod),
-          intensity: peakIntensity * 0.72 * rightWeight * hippoCoronalWeight,
+          intensity: peakIntensity * 0.74 * rightWeight * hippoCoronalWeight,
           name: 'Coronal Ventricles'
         });
       }
     } else {
-      const sagWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.18, 2));
+      const sagWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.30, 2));
       if (sagWeight > 0.05) {
         hotspots.push({
           x: width * (0.52 + shiftX),
@@ -299,7 +303,7 @@ export default function GradCamViewer({
           x: width * (0.42 + shiftX),
           y: height * (0.42 + shiftY),
           radius: width * (0.18 * ventRadiusMod),
-          intensity: peakIntensity * 0.78 * sagWeight,
+          intensity: peakIntensity * 0.80 * sagWeight,
           name: 'Posterior Cingulate Cortex'
         });
       }
@@ -307,7 +311,7 @@ export default function GradCamViewer({
 
     const imgData = ctx.createImageData(width, height);
     const data = imgData.data;
-    const alphaBase = 0.70; // Standard clinical blend
+    const alphaBase = 0.65; // Balanced clinical transparency
 
     for (let py = 0; py < height; py += 1) {
       for (let px = 0; px < width; px += 1) {
@@ -320,15 +324,15 @@ export default function GradCamViewer({
           const distSq = dx * dx + dy * dy;
           const rSq = hs.radius * hs.radius;
           if (distSq < rSq * 4.0) {
-            totalActivation += hs.intensity * Math.exp(-distSq / (2.0 * rSq * 0.35));
+            totalActivation += hs.intensity * Math.exp(-distSq / (2.0 * rSq * 0.38));
           }
         }
 
-        const nX = (px - width * 0.5) / (width * 0.42);
-        const nY = (py - height * 0.5) / (height * 0.42);
+        const nX = (px - width * 0.5) / (width * 0.44);
+        const nY = (py - height * 0.5) / (height * 0.44);
         const insideBrain = (nX * nX + nY * nY) <= 1.0;
 
-        if (totalActivation > 0.03 && insideBrain) {
+        if (totalActivation > 0.015 && insideBrain) {
           const clampedAct = Math.min(1.0, totalActivation);
           const [r, g, b] = getColorMapRGB(clampedAct, colorMap);
 
@@ -336,7 +340,7 @@ export default function GradCamViewer({
           data[idx] = r;
           data[idx + 1] = g;
           data[idx + 2] = b;
-          const localAlpha = Math.min(255, Math.round(255 * alphaBase * Math.min(1.0, clampedAct * 1.35)));
+          const localAlpha = Math.min(210, Math.max(35, Math.round(255 * alphaBase * Math.min(1.0, clampedAct * 1.5))));
           data[idx + 3] = localAlpha;
         }
       }
@@ -505,7 +509,6 @@ export default function GradCamViewer({
             className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-100 ease-out"
             style={{
               transform: `scale(${zoomScale / 100})`,
-              mixBlendMode: 'screen',
             }}
           />
 
