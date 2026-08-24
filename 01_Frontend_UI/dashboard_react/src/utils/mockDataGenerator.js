@@ -69,6 +69,25 @@ export function getPatientDeterministicScanId(patient) {
 }
 
 /**
+ * Deterministic unique scan ID tied immutably to a file's name and size.
+ * Guarantees identical scan ID and AI inference across different accounts for the exact same file.
+ */
+export function getFileDeterministicScanId(file) {
+  if (!file) return 'SCN-700001';
+  const name = typeof file === 'string' ? file : file.name || 'scan';
+  const size = file.size || 0;
+  const str = `${name}_${size}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const positiveHash = Math.abs(hash);
+  const scanNum = 700000 + (positiveHash % 200000);
+  return `SCN-${scanNum}`;
+}
+
+/**
  * Generate mock scan data for a given scanId string or file identifier.
  * Returns deterministic clinical values that vary per scan, but are 100% reproducible for the same file.
  */

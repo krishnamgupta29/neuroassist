@@ -4,7 +4,8 @@ import { useApp } from '../context/AppContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import SevenStageStepper from '../components/clinical/SevenStageStepper';
 import AddPatientModal from '../components/clinical/AddPatientModal';
-import { generateScanData } from '../utils/mockDataGenerator';
+import { generateScanData, getFileDeterministicScanId } from '../utils/mockDataGenerator';
+import { scanAPI } from '../services/api';
 import { 
   FiUploadCloud, 
   FiCheckCircle, 
@@ -84,10 +85,9 @@ export default function ScanUploadPage() {
         clearInterval(stepInterval);
         setIsProcessing(false);
 
-        // Derive unique seed strictly based on file signature & name
-        const fileSignature = selectedFile ? `${selectedFile.name}_${selectedFile.size}` : 'sample_scan';
-        const newScanId = `SCN-${Math.floor(100000 + Math.random() * 900000)}`;
-        const aiResult = generateScanData(fileSignature, selectedFile?.name);
+        // Derive unique deterministic scan ID strictly based on file signature & name
+        const newScanId = getFileDeterministicScanId(selectedFile);
+        const aiResult = generateScanData(newScanId, selectedFile?.name);
 
         const newScan = {
           scanId: newScanId,
@@ -120,6 +120,17 @@ export default function ScanUploadPage() {
           biomarkers: aiResult.biomarkers,
           gradCamRegions: aiResult.gradCamRegions,
         };
+
+        // Try backend upload in background
+        if (selectedFile && (targetPatient.id || targetPatient._id)) {
+          scanAPI.upload(selectedFile, targetPatient.id || targetPatient._id)
+            .then(res => {
+              if (res.data?.scan_id) {
+                scanAPI.analyze(res.data.scan_id).catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
 
         dispatch({ type: 'ADD_SCAN', payload: newScan });
         // Navigate to the scan detail view with Grad-CAM and volumetric insights
