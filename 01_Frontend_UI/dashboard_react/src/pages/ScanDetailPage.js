@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import RiskGaugeArc from '../components/clinical/RiskGaugeArc';
@@ -79,22 +79,31 @@ export default function ScanDetailPage() {
       }
     : listScan;
 
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const queryPatientId = searchParams.get('patientId');
+  const queryMrn = searchParams.get('mrn');
+
   // Resolve patient from state.patients
   const targetPatient = useMemo(() => {
-    const sPId = rawScan?.patientId || rawScan?.patient_id;
+    const sPId = queryPatientId || rawScan?.patientId || rawScan?.patient_id;
+    const sMrn = (queryMrn || rawScan?.patient_code || rawScan?.mrn || '').trim().toLowerCase();
     const sPName = (rawScan?.patientName || rawScan?.patient || '').trim().toLowerCase();
-    const sMrn = (rawScan?.patient_code || rawScan?.mrn || '').trim().toLowerCase();
 
-    return patientsList.find((p) => {
-      const pId = p.id || p._id;
+    const matched = patientsList.find((p) => {
+      const pId = String(p.id || p._id || '');
       const pName = (p.full_name || p.name || '').trim().toLowerCase();
       const pMrn = (p.patient_code || p.mrn || '').trim().toLowerCase();
-      if (sPId && pId && sPId === pId) return true;
+      if (queryPatientId && (pId === queryPatientId || p._id === queryPatientId)) return true;
+      if (queryMrn && pMrn && pMrn === queryMrn) return true;
+      if (sPId && pId && pId === sPId) return true;
       if (sMrn && pMrn && sMrn === pMrn) return true;
       if (sPName && pName && sPName === pName) return true;
       return false;
-    }) || patientsList[0] || null;
-  }, [patientsList, rawScan]);
+    });
+
+    return matched || patientsList[0] || null;
+  }, [patientsList, rawScan, queryPatientId, queryMrn]);
 
   const rawPatientCond = (rawScan?.prediction || targetPatient?.condition || targetPatient?.diagnosis || 'CN').toUpperCase();
   const unifiedCond = rawPatientCond.includes('AD') ? 'AD' : rawPatientCond.includes('MCI') ? 'MCI' : 'CN';

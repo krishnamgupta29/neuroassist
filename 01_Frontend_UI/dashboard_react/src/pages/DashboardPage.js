@@ -400,7 +400,7 @@ export default function DashboardPage() {
                             <td className="py-3 px-3 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <Link
-                                  to={`/dashboard/scan/${scanId}`}
+                                  to={`/dashboard/scan/${scanId}?patientId=${item.patientId || ''}&mrn=${item.mrn || ''}`}
                                   className="btn-outline text-[11px] py-1 px-2.5 inline-flex items-center gap-1 group-hover:border-[#7A1F2B]"
                                 >
                                   <span>Workstation</span>
