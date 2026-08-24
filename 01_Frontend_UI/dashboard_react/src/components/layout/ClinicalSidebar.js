@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useApp, getStoredDecisions } from '../../context/AppContext';
+import { generateScanData } from '../../utils/mockDataGenerator';
 import { 
   FiGrid, 
   FiUploadCloud, 
@@ -49,8 +50,9 @@ export default function ClinicalSidebar() {
       seenPatients.add(patientKey);
 
       const storedDec = userDecisions[scanId] || (resolvedPatient?.id ? userDecisions[resolvedPatient.id] : null) || (resolvedPatient?._id ? userDecisions[resolvedPatient._id] : null);
+      const seeded = generateScanData(scanId);
 
-      const rawPred = (storedDec?.prediction || s.prediction || s.condition || s.aiFinding || resolvedPatient?.condition || resolvedPatient?.diagnosis || 'CN').toUpperCase();
+      const rawPred = (storedDec?.prediction || s.prediction || (s.condition && s.condition !== 'CN' ? s.condition : null) || (resolvedPatient?.condition && resolvedPatient.condition !== 'CN' ? resolvedPatient.condition : null) || seeded.prediction || s.condition || 'CN').toUpperCase();
       const pred = rawPred.includes('AD') ? 'AD' : rawPred.includes('MCI') ? 'MCI' : 'CN';
       uniqueScans.push({
         ...s,
