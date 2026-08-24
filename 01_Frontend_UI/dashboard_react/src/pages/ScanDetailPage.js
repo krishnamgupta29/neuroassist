@@ -18,8 +18,7 @@ import {
   FiCheckCircle,
   FiTrash2,
   FiLock,
-  FiAlertTriangle,
-  FiClock
+  FiAlertTriangle
 } from 'react-icons/fi';
 
 export default function ScanDetailPage() {
@@ -356,7 +355,10 @@ export default function ScanDetailPage() {
                 <span className="font-mono text-[11px] text-[#A39E98]">({pMrn})</span>
               </div>
               <span className="text-[#7A756F] text-[11px]">
-                Age: <strong>{scan.patientAge || patient.age || (patient.date_of_birth ? (new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()) : 68)} Yrs</strong> · Gender: <strong>{patient.gender || scan.patientGender || 'Male'}</strong> · Assigned: <strong>{patient.assignedDoctor || loggedInDoctor}</strong>
+                Age: <strong>{scan.patientAge || patient.age || (patient.date_of_birth ? (new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()) : 68)} Yrs</strong> · Gender: <strong>{patient.gender || scan.patientGender || 'Male'}</strong>
+                {!isPatient && (
+                  <> · Assigned: <strong>{patient.assignedDoctor || loggedInDoctor}</strong></>
+                )}
               </span>
             </div>
           </div>
@@ -390,53 +392,8 @@ export default function ScanDetailPage() {
               biomarkers={scan.biomarkers}
             />
 
-            {/* If Patient: Show Patient Review Status Card. If Doctor: Show Doctor Sign-Off Panel */}
-            {isPatient ? (
-              <div className="clinical-card p-5 bg-white space-y-3.5 shadow-clinical border border-[#E8E2DA]">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E8E2DA]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-[#EDF5F0] text-[#4A7C59] flex items-center justify-center">
-                      <FiShield className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-serif font-bold text-[#22201F]">
-                        Physician Review Status
-                      </h4>
-                      <span className="text-[11px] text-[#7A756F]">
-                        Assigned Clinician: <strong>{patient.assignedDoctor || loggedInDoctor}</strong>
-                      </span>
-                    </div>
-                  </div>
-                  {isSignedOff ? (
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-[#EDF5F0] text-[#4A7C59] border border-[#CFE3D5] flex items-center gap-1">
-                      <FiCheckCircle className="w-3.5 h-3.5" />
-                      <span>Reviewed</span>
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-[#FAF3E8] text-[#B87326] border border-[#F2DEBF] flex items-center gap-1">
-                      <FiClock className="w-3.5 h-3.5" />
-                      <span>Under Clinical Review</span>
-                    </span>
-                  )}
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-[#FAF6F3] border border-[#E8E2DA] space-y-2">
-                  <span className="text-[11px] font-semibold text-[#22201F] block">
-                    {isSignedOff ? 'Physician Clinical Notes:' : 'Clinical Protocol Notice:'}
-                  </span>
-                  <p className="text-xs text-[#5A5550] leading-relaxed">
-                    {isSignedOff
-                      ? `"${decisionNotes || 'Volumetric MRI series examined and validated by attending physician.'}"`
-                      : 'Your 3D volumetric MRI scan has been processed by the 3D ResNet-10 AI engine. The multi-planar Grad-CAM attention maps and biomarker metrics above will be finalized by your physician during your diagnostic consultation.'}
-                  </p>
-                </div>
-
-                <div className="text-[11px] text-[#A39E98] flex items-center justify-between pt-1 font-mono">
-                  <span>Scan ID: {currentScanId}</span>
-                  <span>Acquired: {scan.uploadDate}</span>
-                </div>
-              </div>
-            ) : isSignedOff ? (
+            {/* Doctor Sign-Off Panel (Doctor Only) */}
+            {!isPatient && (isSignedOff ? (
               <div className="clinical-card p-5 bg-white space-y-4 border border-[#CFE3D5] shadow-clinical animate-fade-in">
                 {/* Confirmed Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-[#E8E2DA]">
@@ -576,7 +533,7 @@ export default function ScanDetailPage() {
                   <span>Sign & Finalize Examination</span>
                 </button>
               </div>
-            )}
+            ))}
 
           </div>
 
