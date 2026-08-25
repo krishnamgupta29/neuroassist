@@ -205,8 +205,9 @@ def _render_heatmap_overlay(brain_slice: np.ndarray, cam_slice: np.ndarray, outp
     b = np.clip(1.5 - np.abs(cam_arr * 4 - 1), 0.0, 1.0)
     heatmap_rgb = np.stack([r, g, b], axis=-1) * 255.0
     
-    # Selectively overlay heatmap where attention exists
-    mask = cam_arr > 0.02
+    # Selectively overlay heatmap where attention exists AND strictly on brain parenchyma
+    brain_arr = np.array(brain_img).astype(np.float32)
+    mask = (cam_arr > 0.08) & (brain_arr > 32)
     final_output = brain_rgb.copy()
     final_output[mask] = (brain_rgb[mask] * (1.0 - alpha) + heatmap_rgb[mask] * alpha)
     

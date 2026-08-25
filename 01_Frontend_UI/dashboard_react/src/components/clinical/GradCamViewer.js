@@ -194,121 +194,109 @@ export default function GradCamViewer({
     const { leftWeight, rightWeight, shiftX, shiftY, hippoRadiusMod, ventRadiusMod, peakIntensity, focalCenterZ } = patientProfile;
 
     if (activeSliceView === 'axial') {
-      // 1. Hippocampal & Medial Temporal Network (Prominent around Slice 40-75)
-      const hippoZWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.28, 2));
-      if (hippoZWeight > 0.05) {
+      // 1. Hippocampal & Medial Temporal Subfields (Prominent around Slice 42-70)
+      const hippoZWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.22, 2));
+      if (hippoZWeight > 0.08) {
         hotspots.push({
-          x: width * (0.36 + shiftX),
-          y: height * (0.58 + shiftY),
-          radius: width * (0.17 * hippoRadiusMod),
+          x: width * (0.38 + shiftX),
+          y: height * (0.54 + shiftY),
+          radius: width * (0.08 * hippoRadiusMod),
           intensity: peakIntensity * leftWeight * hippoZWeight,
           name: 'Left Hippocampus (CA1 Subfield)'
         });
         hotspots.push({
-          x: width * (0.64 + shiftX),
-          y: height * (0.58 + shiftY),
-          radius: width * (0.17 * hippoRadiusMod),
+          x: width * (0.62 + shiftX),
+          y: height * (0.54 + shiftY),
+          radius: width * (0.08 * hippoRadiusMod),
           intensity: peakIntensity * rightWeight * hippoZWeight,
           name: 'Right Hippocampus (Subiculum)'
         });
       }
 
-      // 2. Lateral Ventricles & Periventricular Zones (Slice 30-70)
-      const ventZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ - 0.06)) / 0.26, 2));
-      if (ventZWeight > 0.05) {
+      // 2. Lateral Ventricles & Periventricular Horns (Slice 35-65)
+      const ventZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ - 0.05)) / 0.20, 2));
+      if (ventZWeight > 0.08) {
         hotspots.push({
-          x: width * (0.44 + shiftX * 0.5),
-          y: height * (0.46 + shiftY * 0.5),
-          radius: width * (0.15 * ventRadiusMod),
-          intensity: peakIntensity * 0.82 * leftWeight * ventZWeight,
+          x: width * (0.45 + shiftX * 0.4),
+          y: height * (0.46 + shiftY * 0.4),
+          radius: width * (0.07 * ventRadiusMod),
+          intensity: peakIntensity * 0.78 * leftWeight * ventZWeight,
           name: 'Left Lateral Ventricle'
         });
         hotspots.push({
-          x: width * (0.56 + shiftX * 0.5),
-          y: height * (0.46 + shiftY * 0.5),
-          radius: width * (0.15 * ventRadiusMod),
-          intensity: peakIntensity * 0.80 * rightWeight * ventZWeight,
+          x: width * (0.55 + shiftX * 0.4),
+          y: height * (0.46 + shiftY * 0.4),
+          radius: width * (0.07 * ventRadiusMod),
+          intensity: peakIntensity * 0.76 * rightWeight * ventZWeight,
           name: 'Right Lateral Ventricle'
         });
       }
 
-      // 3. Entorhinal Cortex & Temporal Horns (Slice 50-85)
-      const tempZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ + 0.12)) / 0.26, 2));
-      if (tempZWeight > 0.05) {
+      // 3. Entorhinal Cortex & Temporal Horns (Slice 52-78)
+      const tempZWeight = Math.exp(-Math.pow((sliceFrac - (focalCenterZ + 0.10)) / 0.20, 2));
+      if (tempZWeight > 0.08) {
         hotspots.push({
-          x: width * (0.28 + shiftX),
-          y: height * (0.62 + shiftY),
-          radius: width * (0.18 * hippoRadiusMod),
-          intensity: peakIntensity * 0.85 * leftWeight * tempZWeight,
+          x: width * (0.31 + shiftX),
+          y: height * (0.58 + shiftY),
+          radius: width * (0.07 * hippoRadiusMod),
+          intensity: peakIntensity * 0.80 * leftWeight * tempZWeight,
           name: 'Left Entorhinal Cortex'
         });
         hotspots.push({
-          x: width * (0.72 + shiftX),
-          y: height * (0.62 + shiftY),
-          radius: width * (0.18 * hippoRadiusMod),
-          intensity: peakIntensity * 0.83 * rightWeight * tempZWeight,
+          x: width * (0.69 + shiftX),
+          y: height * (0.58 + shiftY),
+          radius: width * (0.07 * hippoRadiusMod),
+          intensity: peakIntensity * 0.78 * rightWeight * tempZWeight,
           name: 'Right Entorhinal Cortex'
         });
       }
-
-      // 4. Prefrontal & Cortical Ribbon (Slice 10-45)
-      const cortZWeight = Math.exp(-Math.pow((sliceFrac - 0.30) / 0.25, 2));
-      if (cortZWeight > 0.05) {
-        hotspots.push({
-          x: width * (0.50 + shiftX),
-          y: height * (0.26 + shiftY),
-          radius: width * 0.22,
-          intensity: peakIntensity * 0.65 * cortZWeight,
-          name: 'Prefrontal Cortical Ribbon'
-        });
-      }
     } else if (activeSliceView === 'coronal') {
-      const hippoCoronalWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.28, 2));
-      if (hippoCoronalWeight > 0.05) {
+      const hippoCoronalWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.22, 2));
+      if (hippoCoronalWeight > 0.08) {
         hotspots.push({
-          x: width * (0.38 + shiftX),
-          y: height * (0.62 + shiftY),
-          radius: width * (0.18 * hippoRadiusMod),
+          x: width * (0.39 + shiftX),
+          y: height * (0.58 + shiftY),
+          radius: width * (0.08 * hippoRadiusMod),
           intensity: peakIntensity * leftWeight * hippoCoronalWeight,
           name: 'Left Hippocampal Formation'
         });
         hotspots.push({
-          x: width * (0.62 + shiftX),
-          y: height * (0.62 + shiftY),
-          radius: width * (0.18 * hippoRadiusMod),
+          x: width * (0.61 + shiftX),
+          y: height * (0.58 + shiftY),
+          radius: width * (0.08 * hippoRadiusMod),
           intensity: peakIntensity * rightWeight * hippoCoronalWeight,
           name: 'Right Hippocampal Formation'
         });
         hotspots.push({
-          x: width * (0.44 + shiftX),
-          y: height * (0.44 + shiftY),
-          radius: width * (0.15 * ventRadiusMod),
-          intensity: peakIntensity * 0.76 * leftWeight * hippoCoronalWeight,
+          x: width * (0.45 + shiftX),
+          y: height * (0.46 + shiftY),
+          radius: width * (0.07 * ventRadiusMod),
+          intensity: peakIntensity * 0.72 * leftWeight * hippoCoronalWeight,
           name: 'Coronal Ventricles'
         });
         hotspots.push({
-          x: width * (0.56 + shiftX),
-          y: height * (0.44 + shiftY),
-          radius: width * (0.15 * ventRadiusMod),
-          intensity: peakIntensity * 0.74 * rightWeight * hippoCoronalWeight,
+          x: width * (0.55 + shiftX),
+          y: height * (0.46 + shiftY),
+          radius: width * (0.07 * ventRadiusMod),
+          intensity: peakIntensity * 0.70 * rightWeight * hippoCoronalWeight,
           name: 'Coronal Ventricles'
         });
       }
     } else {
-      const sagWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.30, 2));
-      if (sagWeight > 0.05) {
+      const sagWeight = Math.exp(-Math.pow((sliceFrac - focalCenterZ) / 0.24, 2));
+      if (sagWeight > 0.08) {
         hotspots.push({
-          x: width * (0.52 + shiftX),
-          y: height * (0.58 + shiftY),
-          radius: width * (0.20 * hippoRadiusMod),
+          x: width * (0.50 + shiftX),
+          y: height * (0.54 + shiftY),
+          radius: width * (0.09 * hippoRadiusMod),
           intensity: peakIntensity * ((leftWeight + rightWeight) / 2) * sagWeight,
           name: 'Hippocampus & Medial Temporal'
         });
         hotspots.push({
-          x: width * (0.42 + shiftX),
-          y: height * (0.42 + shiftY),
-          radius: width * (0.18 * ventRadiusMod),
-          intensity: peakIntensity * 0.80 * sagWeight,
+          x: width * (0.44 + shiftX),
+          y: height * (0.44 + shiftY),
+          radius: width * (0.08 * ventRadiusMod),
+          intensity: peakIntensity * 0.75 * sagWeight,
           name: 'Posterior Cingulate Cortex'
         });
       }
@@ -316,10 +304,23 @@ export default function GradCamViewer({
 
     const imgData = ctx.createImageData(width, height);
     const data = imgData.data;
-    const alphaBase = 0.65; // Balanced clinical transparency
+    const alphaBase = 0.72; // Balanced clinical transparency
+
+    // Intracranial Brain Vault Dimensions (strictly clips skull & outer scalp)
+    const radX = activeSliceView === 'axial' ? width * 0.33 : activeSliceView === 'coronal' ? width * 0.32 : width * 0.36;
+    const radY = activeSliceView === 'axial' ? height * 0.38 : activeSliceView === 'coronal' ? height * 0.36 : height * 0.36;
+    const cenX = width * 0.50;
+    const cenY = activeSliceView === 'axial' ? height * 0.51 : height * 0.50;
 
     for (let py = 0; py < height; py += 1) {
       for (let px = 0; px < width; px += 1) {
+        // Intracranial boundary check
+        const nX = (px - cenX) / radX;
+        const nY = (py - cenY) / radY;
+        const normDistSq = nX * nX + nY * nY;
+
+        if (normDistSq >= 1.0) continue; // Outside brain / in skull bone or black space -> 0% overlay
+
         let totalActivation = 0.0;
 
         for (let i = 0; i < hotspots.length; i++) {
@@ -328,30 +329,33 @@ export default function GradCamViewer({
           const dy = py - hs.y;
           const distSq = dx * dx + dy * dy;
           const rSq = hs.radius * hs.radius;
-          if (distSq < rSq * 4.0) {
-            totalActivation += hs.intensity * Math.exp(-distSq / (2.0 * rSq * 0.38));
+          if (distSq < rSq * 3.2) {
+            totalActivation += hs.intensity * Math.exp(-distSq / (2.0 * rSq * 0.22));
           }
         }
 
-        const nX = (px - width * 0.5) / (width * 0.44);
-        const nY = (py - height * 0.5) / (height * 0.44);
-        const insideBrain = (nX * nX + nY * nY) <= 1.0;
+        // Soft cranial margin falloff (zero bleed into bone)
+        const edgeFade = Math.min(1.0, (1.0 - Math.sqrt(normDistSq)) / 0.12);
+        const threshold = cond === 'CN' ? 0.04 : 0.07;
 
-        if (totalActivation > 0.015 && insideBrain) {
+        if (totalActivation > threshold) {
           // Medical Color Spectrum Enforcement:
-          // CN: Strictly capped to physiological cool spectrum (Blue/Cyan/Emerald Green, max 0.36)
-          // MCI: Reaches warning amber/yellow (max 0.68)
+          // CN: Strictly capped to physiological cool spectrum (Blue/Cyan/Emerald Green, max 0.34)
+          // MCI: Reaches warning amber/yellow (max 0.65)
           // AD: Reaches high-alert red/crimson hotspots (up to 1.0)
-          const maxAllowed = cond === 'CN' ? 0.36 : cond === 'MCI' ? 0.68 : 1.0;
-          const clampedAct = Math.min(maxAllowed, totalActivation);
-          const [r, g, b] = getColorMapRGB(clampedAct, colorMap);
+          const maxAllowed = cond === 'CN' ? 0.34 : cond === 'MCI' ? 0.65 : 1.0;
+          const clampedAct = Math.min(maxAllowed, totalActivation) * edgeFade;
 
-          const idx = (py * width + px) * 4;
-          data[idx] = r;
-          data[idx + 1] = g;
-          data[idx + 2] = b;
-          const localAlpha = Math.min(210, Math.max(35, Math.round(255 * alphaBase * Math.min(1.0, clampedAct * (cond === 'CN' ? 2.4 : 1.5)))));
-          data[idx + 3] = localAlpha;
+          if (clampedAct > 0.03) {
+            const [r, g, b] = getColorMapRGB(clampedAct, colorMap);
+
+            const idx = (py * width + px) * 4;
+            data[idx] = r;
+            data[idx + 1] = g;
+            data[idx + 2] = b;
+            const localAlpha = Math.min(220, Math.max(30, Math.round(255 * alphaBase * Math.min(1.0, clampedAct * (cond === 'CN' ? 2.2 : 1.4)))));
+            data[idx + 3] = Math.round(localAlpha * edgeFade);
+          }
         }
       }
     }
