@@ -396,53 +396,57 @@ def run_preprocessing(file_path: str) -> sitk.Image:
 
 def load_and_prepare_volume(file_path: str, original_filename: str = "") -> np.ndarray:
     """
-    Smart volume loader:
-    1. If a DICOM slice/file is uploaded from an ADNI patient (e.g. 002_S_0413),
-       link it directly to the corresponding full 3D volume in processed_volumes.
-    2. If already a 3D NIfTI volume (128x128x128), load directly.
-    3. If raw DICOM series or non-standard format, run SimpleITK preprocessing.
+    Pure Raw Volume / Slice Loader:
+    Processes the uploaded MRI file strictly from its raw pixel/voxel arrays.
+    No filename matching, no ID lookup, no dataset linking.
+    
+    - 3D Volumes (.nii, .nii.gz, 3D DICOM): Resampled and normalized directly to (128, 128, 128).
+    - 2D Slices (.dcm): Resized and projected into standardized spatial volume (128, 128, 128).
     """
-    import re
-    combined_name = f"{original_filename} {file_path}"
-    match = re.search(r'(\d{3}_S_\d{4})', combined_name)
-    if match:
-        sub_id = match.group(1)
-        possible_paths = [
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "02_Deep_Learning_Models", "processed_volumes", f"{sub_id}.nii.gz"),
-            os.path.join(r"d:\neuroassist\02_Deep_Learning_Models\processed_volumes", f"{sub_id}.nii.gz")
-        ]
-        for p in possible_paths:
-            if os.path.exists(p):
-                try:
-                    img = sitk.ReadImage(p, sitk.sitkFloat32)
-                    vol = sitk.GetArrayFromImage(img).astype(np.float32)
-                    if vol.shape == (128, 128, 128):
-                        mn, mx = vol.min(), vol.max()
-                        if mx > mn:
-                            vol = (vol - mn) / (mx - mn)
-                        logger.info(f"Linked scan {original_filename} to full 3D volume {sub_id}.nii.gz")
-                        return vol
-                except Exception as e:
-                    logger.warning(f"Failed to load matched volume {p}: {e}")
-
+    from scipy.ndimage import zoom
+    
     try:
-        if not os.path.isdir(file_path) and (file_path.endswith('.nii') or file_path.endswith('.nii.gz')):
-            img = sitk.ReadImage(file_path, sitk.sitkFloat32)
-            vol = sitk.GetArrayFromImage(img).astype(np.float32)
-            if vol.shape == (128, 128, 128):
-                mn, mx = vol.min(), vol.max()
-                if mx > mn:
-                    vol = (vol - mn) / (mx - mn)
-                return vol
+        img = sitk.ReadImage(file_path, sitk.sitkFloat32)
+        arr = sitk.GetArrayFromImage(img).astype(np.float32)
+        
+        # Case A: 2D single DICOM slice (H, W) or (1, H, W)
+        if arr.ndim == 2 or (arr.ndim == 3 and arr.shape[0] == 1):
+            if arr.ndim == 3:
+                arr = arr[0]
+            mn, mx = arr.min(), arr.max()
+            if mx > mn:
+                arr = (arr - mn) / (mx - mn)
+            zoom_factors = (128.0 / arr.shape[0], 128.0 / arr.shape[1])
+            slice_128 = zoom(arr, zoom_factors, order=1)
+            
+            # Construct 3D spatial array centered on this slice
+            vol = np.zeros((128, 128, 128), dtype=np.float32)
+            z_coords = np.linspace(-1, 1, 128)
+            z_weights = np.exp(-3.5 * (z_coords ** 2))
+            for z in range(128):
+                vol[z] = slice_128 * z_weights[z]
+            return vol
+            
+        # Case B: 3D volume (D, H, W)
+        elif arr.ndim == 3:
+            mn, mx = arr.min(), arr.max()
+            if mx > mn:
+                arr = (arr - mn) / (mx - mn)
+            if arr.shape != (128, 128, 128):
+                factors = (128.0 / arr.shape[0], 128.0 / arr.shape[1], 128.0 / arr.shape[2])
+                arr = zoom(arr, factors, order=1)
+            return arr
+            
     except Exception as e:
-        logger.warning(f"Direct NIfTI read fallback to preprocessing for {file_path}: {e}")
-
+        logger.warning(f"Direct pixel read fallback for {file_path}: {e}")
+        
     preprocessed_img = run_preprocessing(file_path)
     vol = sitk.GetArrayFromImage(preprocessed_img).astype(np.float32)
     mn, mx = vol.min(), vol.max()
     if mx > mn:
         vol = (vol - mn) / (mx - mn)
     return vol
+
 
 
 def run_inference(file_path: str, model_type: str = "multiclass", original_filename: str = "") -> dict:
