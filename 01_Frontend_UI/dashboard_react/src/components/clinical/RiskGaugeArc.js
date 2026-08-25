@@ -1,18 +1,9 @@
 import React from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Cell,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-} from 'recharts';
 
 /**
  * RiskGaugeArc — Calm, curved clinical risk arc meter in muted maroon and slate,
- * paired with an animated Recharts horizontal bar chart for multi-class softmax probabilities.
- * No neon glow, no alarming red — strictly hospital-grade aesthetics.
+ * paired with animated horizontal bars for multi-class softmax probabilities.
+ * Strictly hospital-grade aesthetics.
  */
 export default function RiskGaugeArc({
   // No fabricated defaults here. This used to default to score=84 / AD 87.4%,
@@ -150,10 +141,8 @@ export default function RiskGaugeArc({
 
         {/* 3 Full-Width Animated Probability Bars */}
         <div className="space-y-3 pt-1">
-          {chartData.map((item, idx) => {
-            const isHighest = item.val >= Math.max(...chartData.map(c => c.val));
-            return (
-              <div key={idx} className="space-y-1.5">
+          {chartData.map((item, idx) => (
+            <div key={idx} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 font-bold" style={{ color: item.color }}>
                     <span
@@ -177,8 +166,7 @@ export default function RiskGaugeArc({
                   />
                 </div>
               </div>
-            );
-          })}
+            ))}
         </div>
 
         {/* Quick Summary Pill Row */}
