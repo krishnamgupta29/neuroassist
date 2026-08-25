@@ -443,13 +443,28 @@ def run_inference(file_path: str, model_type: str = "multiclass", original_filen
         vol_array = _generate_simulated_brain_array()
         pred_idx = 0
 
-    # 6. Risk score (0-100)
-    risk_score = float((conf_mci * 45.0) + (conf_ad * 95.0) + (amyloid_load * 5.0))
-    risk_score = min(99.5, max(1.5, risk_score))
+    # 6. Dynamic Clinically Calibrated Risk Score (1.5% - 98.0%)
+    bio_severity = (hippo_atrophy * 0.45) + (ventricle_enlargement * 0.35) + (cortical_thinning * 0.20)
+    if conf_cn > max(conf_mci, conf_ad):
+        # Cognitively Normal spectrum: 1.5% to 28%
+        base_risk = (1.0 - conf_cn) * 35.0
+        computed_risk = (base_risk * 0.6) + (bio_severity * 30.0 * 0.4)
+    elif conf_mci >= conf_ad:
+        # Mild Cognitive Impairment spectrum: 28% to 58%
+        mci_factor = conf_mci + (conf_ad * 0.5)
+        base_risk = 28.0 + (mci_factor * 26.0)
+        computed_risk = (base_risk * 0.55) + (bio_severity * 55.0 * 0.45)
+    else:
+        # Alzheimer's Disease spectrum: 55% to 95%
+        ad_margin = conf_ad / (conf_cn + conf_ad + 1e-6)
+        base_risk = 55.0 + (ad_margin * 32.0)
+        computed_risk = (base_risk * 0.55) + (bio_severity * 90.0 * 0.45)
+
+    risk_score = float(np.clip(computed_risk, 1.5, 96.5))
     
-    if risk_score >= 70:
+    if risk_score >= 60:
         urgency = "urgent"
-    elif risk_score >= 40:
+    elif risk_score >= 30:
         urgency = "priority"
     else:
         urgency = "routine"
