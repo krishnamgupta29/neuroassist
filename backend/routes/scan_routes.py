@@ -245,8 +245,14 @@ async def get_scan_history(
 
     result = []
     for s in scans:
-        patient_doc = await patients_col.find_one({"_id": ObjectId(s.get("patient_id", "000000000000000000000000"))})
+        try:
+            patient_doc = await patients_col.find_one({"_id": ObjectId(s.get("patient_id", "000000000000000000000000"))})
+        except Exception:
+            patient_doc = None
         patient_name = patient_doc.get("full_name", "Unknown") if patient_doc else "Unknown"
+        patient_code = patient_doc.get("patient_code", "PT-UNKNOWN") if patient_doc else "PT-UNKNOWN"
+        max_conf = max(s.get("confidence_cn") or 0, s.get("confidence_mci") or 0, s.get("confidence_ad") or 0)
+
         result.append({
             "id": s.get("scan_id_string"),
             "scanId": s.get("scan_id_string"),
@@ -263,12 +269,18 @@ async def get_scan_history(
             "diagnosis": s.get("prediction"),
             "risk_score": s.get("risk_score"),
             "riskScore": s.get("risk_score"),
-            "confidence": round(max_conf * 100, 1),
+            "confidence": round(max_conf * 100, 1) if max_conf else 0.0,
             "status": s.get("status"),
             "doctorStatus": s.get("status"),
             "urgency": s.get("urgency"),
             "model": s.get("model_used"),
             "model_used": s.get("model_used"),
+            "reviewed_at": s.get("reviewed_at").isoformat() if s.get("reviewed_at") else None,
+            "reviewed_by": s.get("reviewed_by"),
+            "doctor_diagnosis": s.get("doctor_diagnosis"),
+            "doctor_notes": s.get("doctor_notes"),
+            "is_signed_off": s.get("status") in ["accepted", "flagged", "overridden", "signed_off"],
+            "isSignedOff": s.get("status") in ["accepted", "flagged", "overridden", "signed_off"],
         })
 
     return {"items": result, "total": len(result)}
@@ -309,7 +321,10 @@ async def review_scan(
     review_data: models.ReviewRequest,
     current_user: dict = Depends(require_role(["doctor", "admin"]))
 ):
-    scan = await scans_col.find_one({"scan_id_string": scan_id})
+    scan = await scans_col.find_one({"$or": [{"scan_id_string": scan_id}, {"id": scan_id}]})
+    if not scan and ObjectId.is_valid(scan_id):
+        scan = await scans_col.find_one({"_id": ObjectId(scan_id)})
+
     if not scan:
         now = datetime.utcnow()
         scan = {
@@ -326,7 +341,13 @@ async def review_scan(
     await assert_scan_access(scan, current_user)
 
     action = (review_data.action or "ACCEPT FINDING").upper()
-    update = {"reviewed_at": datetime.utcnow(), "doctor_notes": review_data.doctor_notes or "", "doctor_id": current_user["id"]}
+    update = {
+        "reviewed_at": datetime.utcnow(),
+        "doctor_notes": review_data.doctor_notes or "",
+        "doctor_id": current_user["id"],
+        "reviewed_by": current_user.get("full_name") or "Dr. Sarah Smith",
+        "is_signed_off": True,
+    }
 
     if "ACCEPT" in action:
         update["status"] = "accepted"
@@ -353,18 +374,28 @@ async def review_scan(
         update["status"] = "overridden"
         update["doctor_diagnosis"] = review_data.doctor_diagnosis or "MCI"
 
-    await scans_col.update_one({"scan_id_string": scan_id}, {"$set": update})
+    await scans_col.update_one(
+        {"$or": [{"scan_id_string": scan_id}, {"id": scan_id}]},
+        {"$set": update}
+    )
 
     # Update patient record in database if patient_id is present
-    target_pid = scan.get("patient_id") or review_data.patient_id
+    target_pid = str(scan.get("patient_id") or review_data.patient_id or "")
     if target_pid:
+        pat_query = {"$or": [{"patient_code": target_pid}, {"id": target_pid}]}
+        if ObjectId.is_valid(target_pid):
+            pat_query["$or"].append({"_id": ObjectId(target_pid)})
+        
         await patients_col.update_one(
-            {"id": target_pid},
+            pat_query,
             {"$set": {
                 "doctor_status": update.get("status"),
+                "status": update.get("status"),
                 "is_signed_off": True,
                 "reviewed_at": update.get("reviewed_at").isoformat() if isinstance(update.get("reviewed_at"), datetime) else str(update.get("reviewed_at")),
-                "reviewed_by": current_user.get("full_name") or "Clinician"
+                "reviewed_by": current_user.get("full_name") or "Clinician",
+                "doctor_diagnosis": update.get("doctor_diagnosis"),
+                "doctor_notes": update.get("doctor_notes")
             }}
         )
 

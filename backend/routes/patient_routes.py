@@ -79,16 +79,42 @@ async def get_patients(
         )
         
     patients = await cursor.to_list(length=100)
-    
-    # Augment with scan counts
+
+    # Augment with scan counts and latest scan review status
     result = []
     for p in patients:
         p_id_str = str(p["_id"])
         scan_count = await scans_col.count_documents({"patient_id": p_id_str})
+        latest_scan = await scans_col.find_one({"patient_id": p_id_str}, sort=[("upload_date", -1)])
+        
         p_data = models.serialize_doc(p)
         p_data["scan_count"] = scan_count
+        p_data["scansCount"] = scan_count
+
+        if latest_scan:
+            p_data["last_scan_id"] = latest_scan.get("scan_id_string")
+            p_data["lastScanId"] = latest_scan.get("scan_id_string")
+            p_data["scanId"] = latest_scan.get("scan_id_string")
+            p_data["prediction"] = latest_scan.get("prediction")
+            p_data["condition"] = latest_scan.get("prediction")
+            p_data["diagnosis"] = latest_scan.get("prediction")
+            p_data["risk_score"] = latest_scan.get("risk_score")
+            p_data["riskScore"] = latest_scan.get("risk_score")
+            p_data["lastScanDate"] = latest_scan.get("upload_date").isoformat() if latest_scan.get("upload_date") else None
+            
+            scan_status = latest_scan.get("status")
+            p_data["doctor_status"] = scan_status
+            p_data["doctorStatus"] = scan_status
+            p_data["status"] = scan_status
+            is_signed = scan_status in ["accepted", "flagged", "overridden", "signed_off"]
+            p_data["is_signed_off"] = is_signed
+            p_data["isSignedOff"] = is_signed
+            p_data["reviewed_at"] = latest_scan.get("reviewed_at").isoformat() if latest_scan.get("reviewed_at") else None
+            p_data["doctor_diagnosis"] = latest_scan.get("doctor_diagnosis")
+            p_data["doctor_notes"] = latest_scan.get("doctor_notes")
+
         result.append(p_data)
-        
+
     return result
 
 @router.get("/{patient_id}")

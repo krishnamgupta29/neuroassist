@@ -13,7 +13,8 @@ import {
   FiActivity, 
   FiArrowRight, 
   FiClock, 
-  FiUsers 
+  FiUsers,
+  FiEdit 
 } from 'react-icons/fi';
 import { LuBrain } from 'react-icons/lu';
 import { scanAPI, patientAPI } from '../services/api';
@@ -393,19 +394,24 @@ export default function DashboardPage() {
                             <td className="py-3 px-3">
                               {isSignedOff ? (
                                 item.isFlagged ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F8EAED] text-[#7A1F2B] border border-[#ECC8CF] text-[10px] font-bold">
-                                    <FiAlertTriangle className="w-3 h-3" />
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FDF2F4] text-[#9F1239] border border-[#FECDD3] text-[10px] font-bold shadow-2xs">
+                                    <FiAlertTriangle className="w-3 h-3 text-[#9F1239]" />
                                     <span>Flagged</span>
                                   </span>
+                                ) : item.status === 'overridden' ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE] text-[10px] font-bold shadow-2xs">
+                                    <FiEdit className="w-3 h-3 text-[#4338CA]" />
+                                    <span>Overridden</span>
+                                  </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EDF5F0] text-[#4A7C59] border border-[#CFE3D5] text-[10px] font-bold">
-                                    <FiCheckCircle className="w-3 h-3" />
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EDF5F0] text-[#2E523A] border border-[#CFE3D5] text-[10px] font-bold shadow-2xs">
+                                    <FiCheckCircle className="w-3 h-3 text-[#4A7C59]" />
                                     <span>Reviewed</span>
                                   </span>
                                 )
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FAF3E8] text-[#8A5A14] border border-[#F0DEC2] text-[10px] font-bold">
-                                  <FiClock className="w-3 h-3" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A] text-[10px] font-bold">
+                                  <FiClock className="w-3 h-3 text-[#B45309]" />
                                   <span>Pending Sign-Off</span>
                                 </span>
                               )}

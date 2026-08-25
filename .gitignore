@@ -4,6 +4,9 @@
 *.pth
 !backend/ml/neuroassist_resnet10.pth
 *.pkl
+!backend/ml/calibrated_classifier.pkl
+!backend/ml/calibrated_scaler.pkl
+!backend/ml/calibrated_meta.pkl
 *.nii.gz
 *.zip
 *.db

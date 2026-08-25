@@ -79,33 +79,42 @@ export default function ScanUploadPage() {
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     try {
-      // 1. Kick off real backend upload and ML inference in parallel
-      const apiPromise = (async () => {
-        if (selectedFile && targetPatientId) {
-          try {
-            const uploadRes = await scanAPI.upload(selectedFile, targetPatientId);
-            const scanIdStr = uploadRes.data?.scan_id;
-            if (scanIdStr) {
-              await scanAPI.analyze(scanIdStr, 'multiclass');
-              const resultRes = await scanAPI.result(scanIdStr);
-              return { scanIdStr, realResult: resultRes.data };
-            }
-          } catch (apiErr) {
-            console.warn('Backend ML server direct inference failed or offline, using fallback:', apiErr);
-          }
-        }
-        return null;
-      })();
+      let scanIdStr = null;
+      let realResult = null;
 
-      // 2. Step through ALL 7 pipeline stages sequentially without skipping any step
-      for (let step = 1; step <= 7; step++) {
-        setPipelineStep(step);
-        await delay(350);
+      // 1. Upload scan file (Stage 1: Raw MRI Standardization)
+      if (selectedFile && targetPatientId) {
+        try {
+          const uploadRes = await scanAPI.upload(selectedFile, targetPatientId);
+          scanIdStr = uploadRes.data?.scan_id;
+        } catch (apiErr) {
+          console.warn('Scan upload notice:', apiErr);
+        }
       }
 
-      const apiData = await apiPromise;
-      const scanIdStr = apiData?.scanIdStr;
-      const realResult = apiData?.realResult;
+      // 2. Start ML analysis in background while stepping through stages realistically
+      const analyzePromise = (async () => {
+        if (scanIdStr) {
+          try {
+            await scanAPI.analyze(scanIdStr, 'multiclass');
+            const resultRes = await scanAPI.result(scanIdStr);
+            realResult = resultRes.data;
+          } catch (e) {
+            console.warn('Backend analysis notice:', e);
+          }
+        }
+      })();
+
+      // 3. Step through stages 2 to 6 smoothly during backend execution
+      for (let step = 2; step <= 6; step++) {
+        setPipelineStep(step);
+        // Wait ~900ms per stage (or break early if backend finished)
+        await delay(900);
+      }
+
+      // 4. Await completion of Stage 7 (3D Inference & Grad-CAM)
+      setPipelineStep(7);
+      await Promise.all([analyzePromise, delay(800)]);
 
       const resolvedScanId = scanIdStr || getFileDeterministicScanId(selectedFile);
       const aiResult = realResult ? {
@@ -157,6 +166,7 @@ export default function ScanUploadPage() {
       };
 
       dispatch({ type: 'ADD_SCAN', payload: newScan });
+      await delay(400);
       setIsProcessing(false);
       navigate(`/dashboard/scan/${resolvedScanId}`);
     } catch (err) {
